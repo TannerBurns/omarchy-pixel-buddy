@@ -41,9 +41,18 @@ PopupWindow {
 
   function close() { menu.open = false }
 
+  // Opened by a right-click: a real popup grab, so the compositor closes the
+  // menu on any click outside it and gives it keyboard focus (Esc works).
+  // A popup grab needs a fresh click on the buddy, so when the menu is opened
+  // over IPC (no click) it falls back to Hyprland's focus grab, which, like
+  // Omarchy's PopupCard, includes the always-mapped buddy surface.
+  property bool fromClick: true
+  grabFocus: menu.fromClick
+  onVisibleChanged: if (!visible && menu.open) menu.open = false
+
   HyprlandFocusGrab {
-    active: menu.visible
-    windows: [menu]
+    active: menu.visible && !menu.fromClick
+    windows: menu.anchorWindow ? [menu, menu.anchorWindow] : [menu]
     onCleared: menu.close()
   }
 
@@ -188,7 +197,7 @@ PopupWindow {
       spacing: 6
       Chip { text: "Stretch now"; onPicked: { menu.close(); menu.service.stretchNow() } }
       Chip { text: "Snooze nudges 1h"; onPicked: { menu.service.coachRef.snooze(60); menu.close() } }
-      Chip { text: "Hide"; onPicked: { menu.close(); menu.service.setHidden(true) } }
+      Chip { text: "Hide (Super+Alt+B)"; onPicked: { menu.close(); menu.service.setHidden(true) } }
     }
 
     Text {

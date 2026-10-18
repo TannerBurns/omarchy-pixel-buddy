@@ -361,7 +361,7 @@ Item {
     coach: coach
     targetScreen: root.screen
     overFullscreen: root.settings.overFullscreen
-    onMenuRequested: function (x, y) { menu.anchorRect = Qt.rect(x, y, 1, 1); menu.open = true }
+    onMenuRequested: function (x, y) { menu.fromClick = true; menu.anchorRect = Qt.rect(x, y, 1, 1); menu.open = true }
     onPetted: if (coach.active && coach.collapsed) coach.collapsed = false
   }
 
@@ -443,6 +443,7 @@ Item {
     function answer(id: string): string { if (!coach.active) return "none"; coach.answer(id); return "ok" }
     function menu(): string {
       var h = controller.hitbox
+      menu.fromClick = false
       menu.anchorRect = Qt.rect(h.x + h.width / 2, h.y, 1, 1)
       menu.open = !menu.open
       return menu.open ? "open" : "closed"
