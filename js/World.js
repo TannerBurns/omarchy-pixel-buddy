@@ -285,6 +285,7 @@ function decide(w) {
       var spot = w.P.hangSpot(w.env.ledges, w.env.focused ? w.env.focused.address : "")
       if (spot) return goHang(w, spot)
     }
+    if (w.night && r > 0.9) { setExpr(w, "sleepy", 1.6); setEmote(w, "dots", 1.6); return idle(w, 2) }
     if (r < 0.42) return wander(w, perch ? perch.x : w.x, 120 * w.k / 3)
     if (r < 0.76) return sit(w)
     if (r < 0.86 && w.night) return sleep(w, 20 + w.rng() * 25)
@@ -300,6 +301,7 @@ function decide(w) {
     if (r < 0.8) return sit(w)
     return idle(w)
   }
+  if (w.night && r > 0.9) { setExpr(w, "sleepy", 1.6); setEmote(w, "dots", 1.6); return idle(w, 2) }
   if (r < 0.45) return sit(w)
   if (r < 0.55 && w.night) return sleep(w, 20 + w.rng() * 20)
   return idle(w, 4 + w.rng() * 6)

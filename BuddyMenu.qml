@@ -196,7 +196,7 @@ PopupWindow {
       width: parent.width
       spacing: 6
       Chip { text: "Stretch now"; onPicked: { menu.close(); menu.service.stretchNow() } }
-      Chip { text: "Snooze nudges 1h"; onPicked: { menu.service.coachRef.snooze(60); menu.close() } }
+      Chip { text: "Snooze reminders 1h"; onPicked: { menu.service.coachRef.snooze(60); menu.close() } }
       Chip { text: "Hide (Super+Alt+B)"; onPicked: { menu.close(); menu.service.setHidden(true) } }
     }
 

@@ -120,6 +120,12 @@ function resolveFrames(json, w, h) {
           if (!base) continue
           rows = base.rows.slice()
           anchors = cloneAnchors(base.anchors)
+          // Shift first, then patch rows, so patches can fix up the moved frame.
+          if (f.shift) {
+            var dx = parseInt(f.shift[0], 10) || 0, dy = parseInt(f.shift[1], 10) || 0
+            rows = shiftRows(rows, dx, dy, w)
+            anchors = shiftAnchors(anchors, dx, dy)
+          }
           if (f.rows !== undefined) {
             if (typeof f.rows !== "object" || Array.isArray(f.rows)) { errors.push(where + ": patch rows must map row index to a string"); continue }
             for (var key in f.rows) {
@@ -131,6 +137,11 @@ function resolveFrames(json, w, h) {
         } else if (Array.isArray(f.rows)) {
           rows = f.rows.map(function (r) { return String(r) })
           anchors = cloneAnchors(poseAnchors)
+          if (f.shift) {
+            var sx = parseInt(f.shift[0], 10) || 0, sy = parseInt(f.shift[1], 10) || 0
+            rows = shiftRows(rows, sx, sy, w)
+            anchors = shiftAnchors(anchors, sx, sy)
+          }
         } else {
           errors.push(where + ": frame needs rows or a base")
           continue
@@ -141,11 +152,6 @@ function resolveFrames(json, w, h) {
           if (rows[r].length !== w) { errors.push(where + ": row " + r + " is " + rows[r].length + " wide, expected " + w); bad = true; break }
         }
         if (bad) continue
-        if (f.shift) {
-          var dx = parseInt(f.shift[0], 10) || 0, dy = parseInt(f.shift[1], 10) || 0
-          rows = shiftRows(rows, dx, dy, w)
-          anchors = shiftAnchors(anchors, dx, dy)
-        }
         if (f.anchors) anchors = mergeAnchors(anchors, f.anchors)
         out.push({ rows: rows, anchors: anchors })
       }

@@ -379,7 +379,7 @@ Item {
   }
   readonly property string wellbeingLine: {
     void coach.revision
-    if (!root.settings.wellbeing) return "Stretch nudges are off."
+    if (!root.settings.wellbeing) return "Stretch reminders are off."
     var s = coach.session
     var parts = ["Next stretch: " + coach.remainingText()]
     if (s.doneDay === Roster.dayKey(new Date()) && s.doneToday > 0) parts.push(s.doneToday + " today")

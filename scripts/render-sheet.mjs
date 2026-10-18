@@ -80,14 +80,14 @@ function rgb(hex) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
-function canvas(w, h, bg = "#000000") {
+export function canvas(w, h, bg = "#000000") {
   const data = Buffer.alloc(w * h * 4)
   const img = { w, h, data }
   fill(img, 0, 0, w, h, bg)
   return img
 }
 
-function fill(img, x, y, w, h, hex) {
+export function fill(img, x, y, w, h, hex) {
   const [r, g, b] = rgb(hex)
   for (let yy = Math.max(0, y); yy < Math.min(img.h, y + h); yy++) {
     for (let xx = Math.max(0, x); xx < Math.min(img.w, x + w); xx++) {
@@ -97,7 +97,7 @@ function fill(img, x, y, w, h, hex) {
   }
 }
 
-function drawRuns(img, runs, x0, y0, s) {
+export function drawRuns(img, runs, x0, y0, s) {
   for (const [y, x, n, c] of runs) fill(img, x0 + x * s, y0 + y * s, n * s, s, c)
 }
 

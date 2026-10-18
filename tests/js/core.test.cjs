@@ -157,3 +157,25 @@ test("portal: tears open as a seam, opens into a ring, floor portals stay flat",
   const b = JSON.stringify(Portal.portal({ kind: "side", open: 1, step: 2 }).runs)
   assert.notEqual(a, b)
 })
+
+test("docs: the custom character example validates and matches docs/characters.md", () => {
+  const fs = require("node:fs")
+  const path = require("node:path")
+  const { ROOT } = require("./helpers.cjs")
+  const fixture = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/fixtures/custom-mochi.json"), "utf8"))
+  const res = Schema.validate(fixture)
+  assert.ok(res.ok, res.errors.join("; "))
+  assert.equal(res.character.poses.sleep.frames[0].rows[15], ".##############.")
+  const doc = fs.readFileSync(path.join(ROOT, "docs/characters.md"), "utf8")
+  const block = doc.match(/```json\n(\{\n  "format"[\s\S]*?)```/)
+  assert.ok(block, "example block present")
+  assert.deepEqual(JSON.parse(block[1]), fixture)
+})
+
+test("docs: the README settings table covers every setting", () => {
+  const fs = require("node:fs")
+  const path = require("node:path")
+  const { ROOT } = require("./helpers.cjs")
+  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8")
+  for (const key of Settings.KEYS) assert.ok(readme.includes("| `" + key + "` |"), "README documents " + key)
+})

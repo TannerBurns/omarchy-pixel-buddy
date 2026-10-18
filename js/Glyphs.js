@@ -171,7 +171,7 @@ var PROPS = {
 // Accessories sit on anchors.head (top-center of the head).
 var ACCESSORIES = {
   nightcap: {
-    ax: 3, ay: 4,
+    ax: 3, ay: 3,
     colors: { k: INK, b: "#5b6ee1", d: "#3f4fb3", w: "#f4f4f4" },
     rows: [
       ".....kkw",
