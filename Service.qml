@@ -140,6 +140,9 @@ Item {
   // ---------------------------------------------------------------- characters
 
   Characters { id: characters; customDir: root.customDir }
+  // Exposed for the menu (ids aren't visible outside this file).
+  readonly property var registry: characters
+  readonly property var coachRef: coach
 
   function hex(c) {
     function h(v) { var s = Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16); return s.length < 2 ? "0" + s : s }
@@ -437,6 +440,13 @@ Item {
       return "ok"
     }
     function react(name: string): string { controller.react(name); return "ok" }
+    function answer(id: string): string { if (!coach.active) return "none"; coach.answer(id); return "ok" }
+    function menu(): string {
+      var h = controller.hitbox
+      menu.anchorRect = Qt.rect(h.x + h.width / 2, h.y, 1, 1)
+      menu.open = !menu.open
+      return menu.open ? "open" : "closed"
+    }
   }
 
   Process {

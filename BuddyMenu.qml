@@ -48,7 +48,7 @@ PopupWindow {
   }
 
   function preview(id) {
-    var ch = menu.service.characters.byId[id]
+    var ch = menu.service.registry.byId[id]
     if (!ch) return { runs: [], w: 0, h: 0 }
     var colors = Schema.resolveColors(ch, menu.settings.colors, menu.service.themeColors)
     var c = Sprite.compose({ character: ch, colors: colors, glyphs: Glyphs })
@@ -119,7 +119,7 @@ PopupWindow {
       width: parent.width
       spacing: 4
       Repeater {
-        model: menu.open ? menu.service.characters.ids : []
+        model: menu.open ? menu.service.registry.ids : []
         delegate: Item {
           required property string modelData
           readonly property bool current: menu.service.characterId === modelData
@@ -187,7 +187,7 @@ PopupWindow {
       width: parent.width
       spacing: 6
       Chip { text: "Stretch now"; onPicked: { menu.close(); menu.service.stretchNow() } }
-      Chip { text: "Snooze nudges 1h"; onPicked: { menu.service.coach.snooze(60); menu.close() } }
+      Chip { text: "Snooze nudges 1h"; onPicked: { menu.service.coachRef.snooze(60); menu.close() } }
       Chip { text: "Hide"; onPicked: { menu.close(); menu.service.setHidden(true) } }
     }
 
