@@ -7,7 +7,7 @@ import "js/Glyphs.js" as Glyphs
 import "js/Portal.js" as Portal
 import "js/CharacterSchema.js" as Schema
 
-// Drives the world simulation and turns its render state into pixels. Ticks
+// Drives the world simulation and turns its render state into pixels. It ticks
 // only when the world says something will change (`wait`), runs per-frame only
 // while something moves, and repaints the sprite only when its composition
 // actually changes.
