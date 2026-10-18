@@ -1,0 +1,39 @@
+name: CI
+
+# Pull requests into main, and merges (pushes) to main. Nothing else.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Plugin checks, unit tests and character lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Tool versions
+        run: |
+          bash --version | head -n1
+          jq --version
+          node --version
+          shellcheck --version | sed -n 2p
+
+      - name: Run tests
+        # Manifest/version checks, shellcheck, node unit tests for the pure JS
+        # modules (sprites, platforms, motion, roster, wellbeing, world) and
+        # the character lint. qmllint needs Omarchy, so it only runs locally.
+        run: bash tests/run.sh

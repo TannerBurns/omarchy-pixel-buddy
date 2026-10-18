@@ -1,0 +1,372 @@
+{
+  "format": "pixel-buddy-character",
+  "version": 1,
+  "id": "blob",
+  "name": "Blob",
+  "credit": "Tanner Burns",
+  "size": [16, 16],
+  "motion": "hop",
+  "speed": 1,
+  "palette": {
+    "#": { "natural": "#1b3a5c", "theme": "accent-dark" },
+    "o": { "natural": "#4cc9f0", "theme": "accent" },
+    "s": { "natural": "#2f9fd0", "theme": "accent-shade" },
+    "h": { "natural": "#c4f3ff", "theme": "accent-light" },
+    "p": "#ff8fab"
+  },
+  "eyes": { "style": "dot", "color": "#" },
+  "poses": {
+    "idle": {
+      "fps": 1.25,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "......####......",
+            "....##ohos##....",
+            "...#ohooooos#...",
+            "..#ohooooooos#..",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#opoooooooops#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ssssssssssss#.",
+            "..############.."
+          ],
+          "anchors": { "eyes": [[4, 9], [10, 9]], "mouth": [6, 12], "hand": [7, 15], "head": [7, 3] }
+        },
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "......####......",
+            "....##ohos##....",
+            "..##ohooooos##..",
+            ".#ohooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#opoooooooops#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ssssssssssss#.",
+            "..############.."
+          ],
+          "anchors": { "eyes": [[4, 9], [10, 9]], "mouth": [6, 12], "hand": [7, 15], "head": [7, 4] }
+        }
+      ]
+    },
+    "walk": {
+      "fps": 8,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "......####......",
+            "...###ohos###...",
+            ".##ohooooooos##.",
+            "#ohooooooooooos#",
+            "#ooooooooooooos#",
+            "#ooooooooooooos#",
+            "#oopoooooooopos#",
+            "#ooooooooooooos#",
+            "#ssssssssssssss#",
+            ".##############."
+          ],
+          "anchors": { "eyes": [[4, 10], [10, 10]], "mouth": [6, 12], "hand": [7, 15], "head": [7, 6] }
+        },
+        {
+          "rows": [
+            "................",
+            "......####......",
+            ".....#ohos#.....",
+            "....#ohooos#....",
+            "...#ohooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#poooooop#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "....#ooooos#....",
+            ".....#ssss#.....",
+            "......####......"
+          ],
+          "anchors": { "eyes": [[5, 6], [9, 6]], "mouth": [6, 9], "hand": [7, 15], "head": [7, 1] }
+        },
+        {
+          "rows": [
+            "......####......",
+            "....##ohos##....",
+            "...#ohooooos#...",
+            "..#ohooooooos#..",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#opoooooooops#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ssssssssssss#.",
+            "..############..",
+            "................",
+            "................",
+            "................"
+          ],
+          "anchors": { "eyes": [[4, 6], [10, 6]], "mouth": [6, 9], "hand": [7, 12], "head": [7, 0] }
+        },
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "......####......",
+            "...###ohos###...",
+            ".##ohooooooos##.",
+            "#ohooooooooooos#",
+            "#ooooooooooooos#",
+            "#ooooooooooooos#",
+            "#oopoooooooopos#",
+            "#ooooooooooooos#",
+            "#ssssssssssssss#",
+            ".##############."
+          ],
+          "anchors": { "eyes": [[4, 10], [10, 10]], "mouth": [6, 12], "hand": [7, 15], "head": [7, 6] }
+        }
+      ]
+    },
+    "jump": {
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "......####......",
+            ".....#ohos#.....",
+            "....#ohooos#....",
+            "...#ohooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#poooooop#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "....#ooooos#....",
+            ".....#ssss#.....",
+            "......####......"
+          ],
+          "anchors": { "eyes": [[5, 6], [9, 6]], "mouth": [6, 9], "hand": [7, 15], "head": [7, 1] }
+        }
+      ]
+    },
+    "fall": {
+      "frames": [
+        {
+          "rows": [
+            "......####......",
+            "....##ohos##....",
+            "...#ohooooos#...",
+            "..#ohooooooos#..",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#opoooooooops#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ssssssssssss#.",
+            "..############..",
+            "................",
+            "................",
+            "................"
+          ],
+          "anchors": { "eyes": [[4, 6], [10, 6]], "mouth": [6, 9], "hand": [7, 12], "head": [7, 0] }
+        }
+      ]
+    },
+    "sit": {
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "......####......",
+            "....##ohos##....",
+            "..##ohooooos##..",
+            ".#ohooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#opoooooooops#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ssssssssssss#.",
+            "..############.."
+          ],
+          "anchors": { "eyes": [[4, 9], [10, 9]], "mouth": [6, 12], "hand": [7, 15], "head": [7, 4] }
+        }
+      ]
+    },
+    "sleep": {
+      "fps": 0.8,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            ".....######.....",
+            "...##ohooos##...",
+            "..#ohooooooos#..",
+            ".#ohooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ssssssssssss#.",
+            "..############.."
+          ],
+          "anchors": { "eyes": [[4, 11], [10, 11]], "mouth": [6, 13], "hand": [7, 15], "head": [7, 8] }
+        },
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            ".....######.....",
+            "..###ohooos###..",
+            ".#ohooooooooos#.",
+            ".#ohooooooooos#.",
+            ".#ooooooooooos#.",
+            ".#ssssssssssss#.",
+            "..############.."
+          ],
+          "anchors": { "eyes": [[4, 12], [10, 12]], "mouth": [6, 14], "hand": [7, 15], "head": [7, 9] }
+        }
+      ]
+    },
+    "carried": {
+      "fps": 4,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            ".......##.......",
+            "......#os#......",
+            ".....#ohos#.....",
+            "....#ohooos#....",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "..#ooooooooos#..",
+            "..#ooooooooos#..",
+            "..#opoooooops#..",
+            "..#ooooooooos#..",
+            "..#ooooooooos#..",
+            "..#ooooooooos#..",
+            "...#ssssssss#...",
+            "....########....",
+            "................"
+          ],
+          "anchors": { "eyes": [[5, 7], [9, 7]], "mouth": [6, 10], "hand": [7, 14], "head": [7, 1] }
+        },
+        {
+          "rows": [
+            "................",
+            ".......##.......",
+            "......#os#......",
+            ".....#ohos#.....",
+            "....#ohooos#....",
+            "...#ooooooos#...",
+            "..#ooooooooos#..",
+            "..#ooooooooos#..",
+            "..#ooooooooos#..",
+            "..#opoooooops#..",
+            "..#ooooooooos#..",
+            "..#ooooooooos#..",
+            "...#ooooooos#...",
+            "...##ssssss##...",
+            ".....######.....",
+            "................"
+          ],
+          "anchors": { "eyes": [[5, 7], [9, 7]], "mouth": [6, 10], "hand": [7, 14], "head": [7, 1] }
+        }
+      ]
+    },
+    "cheer": {
+      "fps": 6,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "......####......",
+            ".....#ohos#.....",
+            "....#ohooos#....",
+            "...#ohooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#poooooop#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "...#ooooooos#...",
+            "....#ooooos#....",
+            ".....#ssss#.....",
+            "......####......"
+          ],
+          "anchors": { "eyes": [[5, 6], [9, 6]], "mouth": [6, 9], "hand": [7, 15], "head": [7, 1] }
+        },
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "......####......",
+            "...###ohos###...",
+            ".##ohooooooos##.",
+            "#ohooooooooooos#",
+            "#ooooooooooooos#",
+            "#ooooooooooooos#",
+            "#oopoooooooopos#",
+            "#ooooooooooooos#",
+            "#ssssssssssssss#",
+            ".##############."
+          ],
+          "anchors": { "eyes": [[4, 10], [10, 10]], "mouth": [6, 12], "hand": [7, 15], "head": [7, 6] }
+        }
+      ]
+    }
+  }
+}

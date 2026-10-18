@@ -1,0 +1,80 @@
+[
+  {
+    "address": "0x4f5a20",
+    "mapped": true,
+    "hidden": false,
+    "at": [
+      12,
+      38
+    ],
+    "size": [
+      1256,
+      750
+    ],
+    "workspace": {
+      "id": 3,
+      "name": "3"
+    },
+    "floating": false,
+    "pseudo": null,
+    "monitor": 0,
+    "class": "com.microsoft.VSCode",
+    "pinned": false,
+    "fullscreen": 0,
+    "fullscreenClient": 0,
+    "grouped": [],
+    "focusHistoryID": 1
+  },
+  {
+    "address": "0xe64a80",
+    "mapped": true,
+    "hidden": false,
+    "at": [
+      12,
+      38
+    ],
+    "size": [
+      1256,
+      750
+    ],
+    "workspace": {
+      "id": 2,
+      "name": "2"
+    },
+    "floating": false,
+    "pseudo": null,
+    "monitor": 0,
+    "class": "org.omarchy.agent",
+    "pinned": false,
+    "fullscreen": 0,
+    "fullscreenClient": 0,
+    "grouped": [],
+    "focusHistoryID": 2
+  },
+  {
+    "address": "0x588460",
+    "mapped": true,
+    "hidden": false,
+    "at": [
+      12,
+      38
+    ],
+    "size": [
+      1256,
+      750
+    ],
+    "workspace": {
+      "id": 1,
+      "name": "1"
+    },
+    "floating": false,
+    "pseudo": null,
+    "monitor": 0,
+    "class": "google-chrome",
+    "pinned": false,
+    "fullscreen": 0,
+    "fullscreenClient": 0,
+    "grouped": [],
+    "focusHistoryID": 0
+  }
+]
