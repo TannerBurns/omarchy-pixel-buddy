@@ -790,7 +790,7 @@ function schedule(w) {
   var waits = []
   var pose = poseName(w)
   var fps = w.st === "walk" ? fpsOf(w, "walk") * (w.m.speed || 1) : fpsOf(w, pose)
-  if (framesOf(w, pose) > 1 || w.st === "walk") waits.push(1 / fps - w.frameT)
+  if (framesOf(w, pose) > 1 || w.st === "walk" || pose === "idle") waits.push(1 / fps - w.frameT)
   if (w.st !== "sleep" && w.st !== "carried") waits.push(w.blinkAt - w.clock)
   if (w.exprOverride) waits.push(w.exprOverride.until - w.clock)
   if (w.poseOverride) waits.push(w.poseOverride.until - w.clock)
@@ -899,6 +899,8 @@ function render(w) {
   if (w.st === "carried" && w.plan) ops.lean = clamp(-(w.plan.vx || 0) / 4000, -0.2, 0.2)
   if (w.st === "hang") ops.lean = Math.floor(w.t) % 2 ? 0.04 : -0.04
   if (w.st === "land") ops.squash = 1
+  // Characters drawn with a single idle frame still breathe.
+  if (pose === "idle" && framesOf(w, "idle") === 1 && w.frame % 2 === 1 && (w.st === "idle" || w.st === "stretch")) ops.squash = 1
   if (w.st === "hop" && w.rising && w.t < 0.08) ops.squash = 1
   if (w.st === "idle" && floats(w)) ops.bob = Math.floor(w.clock) % 2 ? -1 : 0
   if (w.st === "walk" && floats(w)) ops.bob = w.frame % 2 ? -1 : 0

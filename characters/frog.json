@@ -1,0 +1,239 @@
+{
+  "format": "pixel-buddy-character",
+  "version": 1,
+  "id": "frog",
+  "name": "Frog",
+  "credit": "Tanner Burns",
+  "size": [16, 16],
+  "motion": "hop",
+  "speed": 1,
+  "palette": {
+    "#": { "natural": "#1f4d1a", "theme": "accent-dark" },
+    "g": { "natural": "#6cc551", "theme": "accent" },
+    "s": { "natural": "#4e9a3b", "theme": "accent-shade" },
+    "l": { "natural": "#d8f0a8", "theme": "accent-light" },
+    "w": "#ffffff",
+    "k": "#163a12",
+    "p": "#ff9eb5"
+  },
+  "eyes": { "style": "dot", "color": "#" },
+  "poses": {
+    "idle": {
+      "fps": 1,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "................",
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            ".#ggllllllllgg#.",
+            "#gg#gggggggg#gg#",
+            "####........####"
+          ],
+          "anchors": { "eyes": [[3, 4], [11, 4]], "hand": [7, 15], "head": [7, 2] }
+        }
+      ]
+    },
+    "walk": {
+      "fps": 8,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            "#gg#gggggggg#gg#",
+            "################"
+          ],
+          "anchors": { "eyes": [[3, 5], [11, 5]], "hand": [7, 15], "head": [7, 3] }
+        },
+        {
+          "rows": [
+            "................",
+            "................",
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            ".#ggllllllllgg#.",
+            "#gg#gggggggg#gg#",
+            "####........####"
+          ],
+          "anchors": { "eyes": [[3, 4], [11, 4]], "hand": [7, 15], "head": [7, 2] }
+        },
+        {
+          "rows": [
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            ".#ggllllllllgg#.",
+            "#gg#gggggggg#gg#",
+            ".#g#gggggggg#g#.",
+            ".#g#........#g#.",
+            "..#..........#.."
+          ],
+          "anchors": { "eyes": [[3, 2], [11, 2]], "hand": [7, 13], "head": [7, 0] }
+        },
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            "#gg#gggggggg#gg#",
+            "################"
+          ],
+          "anchors": { "eyes": [[3, 5], [11, 5]], "hand": [7, 15], "head": [7, 3] }
+        }
+      ]
+    },
+    "jump": {
+      "frames": [
+        {
+          "rows": [
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            ".#ggllllllllgg#.",
+            "#gg#gggggggg#gg#",
+            ".#g#gggggggg#g#.",
+            ".#g#........#g#.",
+            "..#..........#.."
+          ],
+          "anchors": { "eyes": [[3, 2], [11, 2]], "hand": [7, 13], "head": [7, 0] }
+        }
+      ]
+    },
+    "sit": {
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            "#gg#gggggggg#gg#",
+            "################"
+          ],
+          "anchors": { "eyes": [[3, 5], [11, 5]], "hand": [7, 15], "head": [7, 3] }
+        }
+      ]
+    },
+    "sleep": {
+      "fps": 0.8,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            "#gg#gggggggg#gg#",
+            "################"
+          ],
+          "anchors": { "eyes": [[3, 5], [11, 5]], "hand": [7, 15], "head": [7, 3] }
+        }
+      ]
+    },
+    "carried": {
+      "fps": 4,
+      "frames": [
+        {
+          "rows": [
+            "..####....####..",
+            ".#wwww#..#wwww#.",
+            ".#wwww#..#wwww#.",
+            ".#wwwwg##gwwww#.",
+            "#gwwwwggggwwwwg#",
+            "#gggggggggggggs#",
+            "#gpgggggggggpgs#",
+            "#ggkggggggggkgs#",
+            "#gggkkkkkkkkggs#",
+            "#gglllllllllggs#",
+            ".#gllllllllllg#.",
+            ".#ggllllllllgg#.",
+            "#gg#gggggggg#gg#",
+            ".#g#gggggggg#g#.",
+            ".#g#........#g#.",
+            "..#..........#.."
+          ],
+          "anchors": { "eyes": [[3, 2], [11, 2]], "hand": [7, 13], "head": [7, 0] }
+        }
+      ]
+    }
+  }
+}

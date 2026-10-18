@@ -1,3 +1,8 @@
 {
-  "characters": ["blob"]
+  "characters": [
+    "cat", "puppy", "bunny", "hamster",
+    "frog", "duck", "penguin", "crab",
+    "blob", "ghost", "robot", "dragon",
+    "pumpkin", "star", "wizard", "zombie", "knight"
+  ]
 }

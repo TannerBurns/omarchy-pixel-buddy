@@ -20,10 +20,10 @@ var EYES = {
     closed:  { dy: 1, rows: ["ee"] },
     sleepy:  { dy: 1, rows: ["ee"] },
     happy:   { mirror: true, rows: [".e.", "e.e"] },
-    wide:    { look: true, dy: -1, rows: ["we", "ee", "ee"] },
+    wide:    { dy: -1, rows: ["we", "ee", "ee"] },
     heart:   { mirror: true, dy: -1, rows: ["r.r", "rrr", ".r."] },
     dizzy:   { mirror: true, dy: -1, rows: ["e.e", ".e.", "e.e"] },
-    sad:     { look: true, mirror: true, rows: [".e", "ee"] },
+    sad:     { mirror: true, rows: [".e", "ee"] },
     focused: { look: true, rows: ["ee"] }
   },
   big: {
@@ -32,10 +32,10 @@ var EYES = {
     closed:  { dy: 2, rows: ["ee"] },
     sleepy:  { dy: 1, rows: ["ee", "ee"] },
     happy:   { mirror: true, dy: 1, rows: [".e.", "e.e"] },
-    wide:    { look: true, dy: -1, rows: ["we", "ee", "ee", "ee"] },
+    wide:    { dy: -1, rows: ["we", "ee", "ee", "ee"] },
     heart:   { mirror: true, rows: ["r.r", "rrr", ".r."] },
     dizzy:   { mirror: true, rows: ["e.e", ".e.", "e.e"] },
-    sad:     { look: true, mirror: true, rows: [".e", "we", "ee"] },
+    sad:     { mirror: true, rows: [".e", "we", "ee"] },
     focused: { look: true, dy: 1, rows: ["we", "ee"] }
   },
   bead: {
@@ -44,10 +44,10 @@ var EYES = {
     closed:  { dy: 1, rows: ["e"] },
     sleepy:  { dy: 1, rows: ["e"] },
     happy:   { mirror: true, rows: [".e", "e."] },
-    wide:    { look: true, dy: -1, rows: ["e", "e", "e"] },
+    wide:    { dy: -1, rows: ["e", "e", "e"] },
     heart:   { mirror: true, dx: -1, dy: -1, rows: ["r.r", "rrr", ".r."] },
     dizzy:   { mirror: true, dx: -1, dy: -1, rows: ["e.e", ".e.", "e.e"] },
-    sad:     { look: true, rows: ["e", "e"] },
+    sad:     { rows: ["e", "e"] },
     focused: { look: true, dy: 1, rows: ["e"] }
   }
 }
