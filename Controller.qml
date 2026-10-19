@@ -222,6 +222,9 @@ Item {
   function hover(on) { if (ctl.world) { World.hover(ctl.world, on); kick() } }
   function notify(kind, at) { if (ctl.world) { World.notify(ctl.world, kind, at); kick() } }
   function react(name) { if (ctl.world) { World.react(ctl.world, name); kick() } }
+  function summon(x) { if (ctl.world) { var ok = World.summon(ctl.world, x); kick(); return ok } return false }
+  function goAway(instant) { if (ctl.world) { World.goAway(ctl.world, !!instant); kick() } }
+  function comeBack(x) { if (ctl.world) { var ok = World.comeBack(ctl.world, x); kick(); return ok } return false }
   function userIdle(idle) { if (ctl.world) { World.userIdle(ctl.world, idle); kick() } }
   function setHidden(h) { if (ctl.world) { World.setHidden(ctl.world, h); publish() } }
   function setStretch(anim) { if (ctl.world) { World.setStretch(ctl.world, anim); kick() } }

@@ -43,6 +43,12 @@ link=$(find "$DIR" -name .git -prune -o -type l -print -quit)
 mv=$(jq -r '.version // ""' "$M" 2>/dev/null)
 sv=$(sed -nE 's/^[[:space:]]*readonly property string version: "([^"]*)".*/\1/p' "$DIR/Service.qml" | head -n1)
 [[ $mv == "$sv" ]] || bad "manifest version ($mv) != Service.qml version ($sv)"
+if [[ -f $DIR/BarWidget.qml ]]; then
+  bv=$(sed -nE 's/^[[:space:]]*readonly property string version: "([^"]*)".*/\1/p' "$DIR/BarWidget.qml" | head -n1)
+  [[ $mv == "$bv" ]] || bad "manifest version ($mv) != BarWidget.qml version ($bv)"
+  jq -e '.barWidget.allowMultiple == false and (.barWidget.defaultSection | IN("left", "center", "right"))' "$M" >/dev/null ||
+    bad "barWidget needs allowMultiple false and a defaultSection"
+fi
 
 # ---- every JSON file parses (characters, fixtures, manifest)
 while IFS= read -r f; do
@@ -58,7 +64,7 @@ grep -n 'path: root.stateDir' "$DIR/Service.qml" >/dev/null || bad "Service.qml 
 # ---- shell scripts parse
 while IFS= read -r f; do
   bash -n "$f" || bad "${f#"$DIR"/} has a bash syntax error"
-done < <(find "$DIR/tests" "$DIR/scripts" "$DIR/hooks" -name '*.sh' -type f 2>/dev/null)
+done < <(find "$DIR/tests" "$DIR/scripts" "$DIR/hooks" "$DIR/helpers" -name '*.sh' -type f 2>/dev/null)
 
 if (( problems )); then exit 1; fi
 echo "  plugin checks passed"

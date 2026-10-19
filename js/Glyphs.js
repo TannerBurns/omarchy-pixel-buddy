@@ -165,6 +165,19 @@ var PROPS = {
       "krwwwkk",
       "kkkkkk."
     ]
+  },
+  // The focus timer: a tomato kitchen timer.
+  tomato: {
+    ax: 3, ay: 5, layer: "front",
+    colors: { k: INK, r: "#e5484d", d: "#b8323a", g: "#46a758", w: "#ffb3b5" },
+    rows: [
+      "..kgk..",
+      ".kgggk.",
+      "krrrrdk",
+      "krwrrdk",
+      "krrrrdk",
+      ".kkkkk."
+    ]
   }
 }
 

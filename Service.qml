@@ -10,6 +10,8 @@ import "js/Portal.js" as Portal
 import "js/Activity.js" as Activity
 import "js/Wellbeing.js" as Wellbeing
 import "js/Power.js" as Power
+import "js/Sprite.js" as Sprite
+import "js/Glyphs.js" as Glyphs
 
 // Pixel Buddy: a pixel-art desktop buddy for the Omarchy shell.
 //
@@ -26,7 +28,7 @@ Item {
   property var shell: null
   property var manifest: null
 
-  readonly property string version: "0.2.0"
+  readonly property string version: "0.3.0"
   readonly property string pluginId: "tannerburns.pixel-buddy"
   readonly property string home: Quickshell.env("HOME")
   property string settingsPath: root.home + "/.config/omarchy/shell.json"
@@ -52,12 +54,14 @@ Item {
   // "bar" or "plugins": where Omarchy keeps this plugin's entry. A bar entry
   // (once the plugin has a bar widget) wins, the way the shell writes it.
   property string entryHome: ""
+  property string barSection: ""     // "left" | "center" | "right" while the icon is on the bar
 
   function readEntry(text) {
     if (root.pendingEntry) return
     try {
       var found = SettingsJs.findEntry(JSON.parse(text), root.pluginId)
       root.entryHome = found.home
+      root.barSection = found.section
       root.rawEntry = found.entry
     } catch (e) {
       // Mid-write or hand-edited into invalid JSON: keep the last good settings.
@@ -117,6 +121,7 @@ Item {
     root.hidden = s.hidden === true
     coach.restore(s.wellbeing)
     root.stateLoaded = true
+    focusTimer.restore(s.focus)
     root.pickDaily()
     root.tryPlace()
   }
@@ -135,6 +140,7 @@ Item {
       s.positions = p
     }
     s.wellbeing = coach.session
+    s.focus = focusTimer.state
     root.store = s
     stateFile.setText(JSON.stringify(s, null, 2) + "\n")
   }
@@ -180,7 +186,7 @@ Item {
     var want = root.characterId
     if (!want || want === root.shownId) { controller.clearSwap(); swapDeadline.stop(); return }
     var animate = root.placed && Date.now() - root.placedAt > 3000 && controller.active && !root.hidden
-      && !senses.userIdle && root.settings.warp !== "none" && controller.worldState !== "carried"
+      && !senses.userIdle && root.settings.warp !== "none" && controller.worldState !== "carried" && controller.worldState !== "away"
       && !!characters.byId[root.shownId]
     if (!animate) { root.applySwap(); return }
     controller.requestSwap()
@@ -220,6 +226,7 @@ Item {
     precision: SystemClock.Minutes
     onDateChanged: {
       root.pickDaily()
+      focusTimer.advance()
       controller.setFlags({ night: Wellbeing.isNight(new Date(), root.settings.bedtime) })
     }
   }
@@ -245,13 +252,18 @@ Item {
     var f = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
     if (!f) return
     if (!root.screenName || !root.placed) { root.screenName = f; return }
-    if (f === root.screenName) return
+    root.goToScreen(f)
+  }
+
+  // Portals over to another monitor (instantly while hidden or covered).
+  function goToScreen(name) {
+    if (name === root.screenName) return
     var from = root.screen, to = null
-    for (var i = 0; i < Quickshell.screens.length; i++) if (Quickshell.screens[i].name === f) to = Quickshell.screens[i]
+    for (var i = 0; i < Quickshell.screens.length; i++) if (Quickshell.screens[i].name === name) to = Quickshell.screens[i]
     if (!to) return
     var dir = from && to.x < from.x ? -1 : 1
-    if (root.hidden || !controller.active) { root.screenName = f; return }
-    controller.monitorSwitch(dir, f)
+    if (root.hidden || !controller.active) { root.screenName = name; return }
+    controller.monitorSwitch(dir, name)
   }
 
   // ---------------------------------------------------------------- the buddy
@@ -268,7 +280,7 @@ Item {
     sprite: controller.spriteSize
     learned: root.store.perches || ({})
     followCursor: root.settings.followCursor
-    awake: !root.hidden && !root.covered && !senses.userIdle
+    awake: !root.hidden && !root.covered && !senses.userIdle && !root.focusAway
     napPending: coach.waitingForPause
     policy: root.policy
 
@@ -323,10 +335,11 @@ Item {
     controller.setMood(senses.mood, Activity.MOOD_PROP[senses.mood], Activity.MOOD_EMOTE[senses.mood])
     controller.setFlags({ night: Wellbeing.isNight(new Date(), root.settings.bedtime), tired: senses.batteryLow && root.settings.battery })
     root.shownId = root.characterId
+    controller.setFlags({ focusing: focusTimer.focusing })
     controller.place(pos)
     controller.setHidden(root.hidden || root.screencastHide)
-    root.placed = true
     root.placedAt = Date.now()
+    root.placed = true
   }
 
   function worldEvent(ev) {
@@ -344,7 +357,11 @@ Item {
       root.learnPerch(ev)
       root.saveState()
       break
-    case "dropped": case "arrived":
+    case "arrived":
+      root.runPendingSummon()
+      root.saveState()
+      break
+    case "dropped":
       root.saveState()
       break
     }
@@ -406,7 +423,117 @@ Item {
     senses: senses
     controller: controller
     hidden: root.hidden || root.covered || root.screencastHide
+    focusing: focusTimer.focusing
     onPersist: root.saveState()
+    onAnswered: function (kind, id) {
+      if (kind === "focus-break" && id === "stretch") coach.offerStretch(true)
+      else if (kind === "focus-again" && id === "again") focusTimer.again()
+      else if (kind === "focus-again" && id === "stop") focusTimer.stop()
+    }
+  }
+
+  // ---------------------------------------------------------------- focus
+
+  FocusTimer {
+    id: focusTimer
+    settings: root.settings
+    dndOn: senses.dnd
+    // Every transition is saved right away (a restart mid-focus resumes it).
+    onPersist: if (root.stateLoaded) root.flushState()
+    onEvent: function (name) { root.focusEvent(name) }
+    onFocusingChanged: {
+      controller.setFlags({ focusing: focusTimer.focusing })
+      if (!focusTimer.focusing || !coach.active) return
+      // Starting a round puts away an open stretch (for later) or focus bubble.
+      if (coach.kind === "stretch") coach.answer("later")
+      else if (coach.kind === "focus-break" || coach.kind === "focus-again") coach.answer("replaced")
+    }
+  }
+
+  // During focus the buddy waits up on the bar (when this monitor's bar has its
+  // icon) and draws nothing on your windows; the icon shows its face and the
+  // minutes left. Without an icon it stays down, sitting with its tomato timer.
+  readonly property bool focusAway: focusTimer.focusing && root.barPresent && root.placed
+  property real backAt: 0
+  onFocusAwayChanged: root.syncAway()
+  function syncAway() {
+    // Straight up without the jump while it's just appearing (a restart in
+    // the middle of a round).
+    if (root.focusAway) controller.goAway(Date.now() - root.placedAt < 1500)
+    else if (controller.comeBack(root.barAnchorX())) root.backAt = Date.now()
+  }
+
+  // The break bubble waits for the buddy to land after dropping back down.
+  Timer { id: breakOffer; interval: 1600; onTriggered: root.offerFocusBreak() }
+  function offerFocusBreak() {
+    if (!coach.offer("focus-break", {
+      title: "Focus round done!",
+      body: "Time for a " + root.settings.focusBreakMinutes + "-minute break. Stretch with me?",
+      buttons: [{ id: "stretch", label: "Stretch", primary: true }, { id: "skip", label: "Skip" }],
+      react: "celebrate", force: true
+    })) controller.react("celebrate")
+  }
+
+  function focusEvent(name) {
+    if (name === "focus-done") {
+      // Before the buddy is placed (catching up after a restart) a bubble has
+      // nowhere to point; the timer moves on regardless.
+      if (!root.placed) return
+      if (Date.now() - root.backAt < 1000) breakOffer.restart()
+      else root.offerFocusBreak()
+    } else if (name === "break-done") {
+      if (root.placed) coach.offer("focus-again", {
+        title: "Break's over",
+        body: "Another round?",
+        buttons: [{ id: "again", label: "Another round", primary: true }, { id: "stop", label: "Done for now" }],
+        react: "wake", force: true
+      })
+    } else if (name === "ask-expired") {
+      if (coach.active && coach.kind === "focus-again") coach.answer("expired")
+    }
+  }
+
+  // ---------------------------------------------------------------- git
+
+  GitWatcher {
+    id: gitWatcher
+    watching: root.settings.gitCelebrate
+    roots: root.settings.gitRoots
+    buddyVisible: root.placed && !root.hidden && !root.covered && !root.screencastHide && !root.focusAway
+    focusing: focusTimer.focusing
+    controller: controller
+  }
+
+  function gitAction(action) {
+    var a = String(action || "").trim().toLowerCase()
+    if (a === "status") return JSON.stringify(gitWatcher.status())
+    if (a === "rescan") { gitWatcher.rescan(); return "ok" }
+    return "unknown action '" + a + "' (status or rescan)"
+  }
+
+  // IPC and menu: start | stop | toggle | status | a number of minutes.
+  function focusAction(action) {
+    var a = String(action || "").trim().toLowerCase()
+    if (a === "status") return JSON.stringify(root.focusStatus())
+    if (a === "stop") { focusTimer.stop(); return "stopped" }
+    if (a === "start") { focusTimer.start(); return focusTimer.label }
+    if (a === "toggle") { focusTimer.toggle(); return focusTimer.running ? focusTimer.label : "stopped" }
+    if (/^[0-9]+$/.test(a)) {
+      var n = parseInt(a, 10)
+      if (n < 1 || n > 180) return "minutes must be 1-180"
+      focusTimer.start(n)
+      return focusTimer.label
+    }
+    return "unknown action '" + a + "' (start, stop, toggle, status or minutes)"
+  }
+
+  // For the menus and the bar icon.
+  readonly property bool focusRunning: focusTimer.running
+  readonly property string focusLabel: focusTimer.label
+
+  function focusStatus() {
+    var f = focusTimer.state
+    return { phase: f.phase, minutesLeft: focusTimer.minutesLeft, round: f.round, dnd: f.dnd, label: focusTimer.label }
   }
 
   BuddyWindow {
@@ -423,6 +550,82 @@ Item {
     id: menu
     service: root
     anchorWindow: buddyWindow
+  }
+
+  // ---------------------------------------------------------------- bar widget
+
+  // BarWidget.qml finds this service through bar.shell.serviceFor() and checks
+  // apiVersion first: after an update the shell keeps this (older) service
+  // loaded until it restarts, while the widget reloads at once.
+  readonly property int apiVersion: 1
+  readonly property bool barIcon: root.settings.barIcon
+  readonly property string barText: focusTimer.focusing || focusTimer.phase === "break" ? focusTimer.minutesLeft + "m" : ""
+
+  // The face on the bar: the character on screen, its expression following
+  // what the buddy is up to (coarse signals only, never window titles).
+  readonly property string barExpression: senses.userIdle || controller.worldState === "sleep" ? "closed"
+    : focusTimer.focusing ? "focused" : senses.batteryLow && root.settings.battery ? "sleepy" : "open"
+  readonly property var barFace: root.skin
+    ? Sprite.crop(Sprite.compose({ character: root.skin.character, colors: root.skin.colors, glyphs: Glyphs, expression: root.barExpression }), 12)
+    : null
+
+  readonly property string barTooltip: {
+    void coach.revision
+    var lines = [(root.character ? root.character.name : "Pixel Buddy") + (root.hidden ? " (hidden)" : "")]
+    if (focusTimer.running) lines.push(focusTimer.label)
+    if (root.settings.wellbeing) lines.push("Next stretch: " + coach.remainingText())
+    lines.push(root.focusAway ? "Middle-click: stop focus · Right: menu" : "Click: call over · Middle: focus · Right: menu")
+    return lines.join("\n")
+  }
+
+  // Each bar's icon (one per monitor) registers itself: focus then knows
+  // there's a place up on the bar to go, and where to come back down from.
+  property var barIcons: []
+  function registerBarIcon(item) { if (root.barIcons.indexOf(item) < 0) root.barIcons = root.barIcons.concat([item]) }
+  function unregisterBarIcon(item) { root.barIcons = root.barIcons.filter(function (i) { return i !== item }) }
+  function barIconOn(name) {
+    for (var i = 0; i < root.barIcons.length; i++) {
+      var it = root.barIcons[i]
+      if (it && it.shown && it.screenName() === name) return it
+    }
+    return null
+  }
+  readonly property bool barPresent: root.settings.barIcon && root.barIconOn(root.screenName) !== null
+  function barAnchorX() { var it = root.barIconOn(root.screenName); return it ? it.iconX() : -1 }
+
+  // Moves the icon to another bar section (Omarchy's `omarchy bar move`).
+  function moveBar(section) {
+    if (["left", "center", "right"].indexOf(section) < 0) return "section must be left, center or right"
+    if (root.entryHome !== "bar") return "the icon isn't on the bar (see scripts/add-to-bar.sh)"
+    if (section === root.barSection) return "ok"
+    barMove.command = ["omarchy-bar", "move", root.pluginId, "--section", section]
+    barMove.running = true
+    return "ok"
+  }
+  Process { id: barMove }
+
+  // name: "summon" | "focus". `screenName` and `x` say where the icon was
+  // clicked; a bar on another monitor first brings the buddy over there.
+  property var pendingSummon: null
+  function barAction(name, screenName, x) {
+    if (name === "focus") return root.focusAction("toggle")
+    if (name !== "summon") return "unknown"
+    if (root.focusAway) return "focusing"
+    if (root.hidden) root.setHidden(false)
+    if (!root.placed) return "busy"
+    if (screenName && screenName !== root.screenName) {
+      root.pendingSummon = { screen: screenName, x: x, until: Date.now() + 6000 }
+      root.goToScreen(screenName)
+      return "ok"
+    }
+    return controller.summon(x >= 0 ? x : controller.position().x) ? "ok" : "busy"
+  }
+
+  function runPendingSummon() {
+    var p = root.pendingSummon
+    if (!p || p.screen !== root.screenName) return
+    root.pendingSummon = null
+    if (Date.now() < p.until) controller.summon(p.x)
   }
 
   // ---------------------------------------------------------------- status
@@ -452,7 +655,9 @@ Item {
       screen: root.screenName, size: root.settings.size, covered: root.covered,
       characters: characters.ids.length, problems: Object.keys(characters.problems).length,
       wellbeing: { enabled: root.settings.wellbeing, next: coach.remainingText(), activeMinutes: Math.round(s.activeMs / 60000),
-                   doneToday: s.doneDay === Roster.dayKey(new Date()) ? s.doneToday : 0, streak: s.streak, offering: coach.active }
+                   doneToday: s.doneDay === Roster.dayKey(new Date()) ? s.doneToday : 0, streak: s.streak, offering: coach.active },
+      focus: root.focusStatus(),
+      git: gitWatcher.status()
     }
   }
 
@@ -487,6 +692,7 @@ Item {
       s.perches = {}
       root.store = s
       controller.place(null)
+      if (root.focusAway) controller.goAway(true)
       root.saveState()
       return "ok"
     }
@@ -495,6 +701,9 @@ Item {
       return "ok"
     }
     function react(name: string): string { return controller.reactChecked(name) ? "ok" : "unknown" }
+    function focus(action: string): string { return root.focusAction(action) }
+    function git(action: string): string { return root.gitAction(action) }
+    function bar(section: string): string { return root.moveBar(section) }
     function answer(id: string): string { if (!coach.active) return "none"; coach.answer(id); return "ok" }
     function menu(): string {
       var h = controller.hitbox

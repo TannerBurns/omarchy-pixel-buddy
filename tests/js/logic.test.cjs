@@ -231,13 +231,14 @@ test("settings: the bar entry wins over plugins[] once the buddy has a bar widge
   const id = "tannerburns.pixel-buddy"
   const plug = { id, character: "cat", size: "large" }
   const bar = { id, character: "frog" }
-  assert.deepEqual(S.findEntry({ plugins: [plug] }, id), { entry: plug, home: "plugins" })
-  assert.deepEqual(S.findEntry({ bar: { layout: { right: [{ id: "omarchy.clock" }, bar] } } }, id), { entry: bar, home: "bar" })
+  assert.deepEqual(S.findEntry({ plugins: [plug] }, id), { entry: plug, home: "plugins", section: "" })
+  assert.deepEqual(S.findEntry({ bar: { layout: { right: [{ id: "omarchy.clock" }, bar] } } }, id), { entry: bar, home: "bar", section: "right" })
   const both = S.findEntry({ plugins: [plug], bar: { layout: { left: [], center: [bar] } } }, id)
-  assert.deepEqual(both, { entry: { id, character: "frog", size: "large" }, home: "bar" })
-  assert.deepEqual(S.findEntry({}, id), { entry: {}, home: "" })
-  assert.deepEqual(S.findEntry(null, id), { entry: {}, home: "" })
-  assert.deepEqual(S.findEntry({ bar: { layout: "nonsense" }, plugins: "nope" }, id), { entry: {}, home: "" })
+  assert.deepEqual(both, { entry: { id, character: "frog", size: "large" }, home: "bar", section: "center" })
+  assert.deepEqual(S.findEntry({ bar: { layout: { left: ["omarchy.workspaces", id] } } }, id).section, "left", "a bare id string counts")
+  assert.deepEqual(S.findEntry({}, id), { entry: {}, home: "", section: "" })
+  assert.deepEqual(S.findEntry(null, id), { entry: {}, home: "", section: "" })
+  assert.deepEqual(S.findEntry({ bar: { layout: "nonsense" }, plugins: "nope" }, id), { entry: {}, home: "", section: "" })
 })
 
 test("settings: batterySaver parses like every other enum", () => {
@@ -247,4 +248,16 @@ test("settings: batterySaver parses like every other enum", () => {
   assert.equal(S.coerce({ batterySaver: "sometimes" }).batterySaver, "auto")
   assert.deepEqual(S.parseValue("batterySaver", "off"), { ok: true, value: "off" })
   assert.equal(S.parseValue("batterySaver", "maybe").ok, false)
+})
+
+test("wellbeing: a focus session holds a due break, ahead of the other reasons", () => {
+  const s = W.newSession(0)
+  s.activeMs = 50 * 60000
+  const cfg = { enabled: true, breakMinutes: 45 }
+  assert.equal(W.status(s, 1000, cfg, {}).due, true)
+  assert.equal(W.status(s, 1000, cfg, { focus: true, dnd: true, hidden: true }).reason, "focus")
+  assert.equal(W.status(s, 1000, cfg, { dnd: true }).reason, "dnd")
+  // Not yet due: the countdown still shows during focus.
+  s.activeMs = 10 * 60000
+  assert.equal(W.status(s, 1000, cfg, { focus: true }).reason, "active")
 })

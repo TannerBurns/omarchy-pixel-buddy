@@ -2,16 +2,26 @@
   "schemaVersion": 1,
   "id": "tannerburns.pixel-buddy",
   "name": "Pixel Buddy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Tanner Burns",
   "license": "MIT",
   "description": "A pixel-art desktop buddy that hops between your windows, follows you through a portal on every workspace switch, reacts to what you're working on, and nudges you to stretch.",
   "repository": "https://github.com/TannerBurns/omarchy-pixel-buddy",
   "kinds": [
-    "service"
+    "service",
+    "bar-widget"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "service": "Service.qml"
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Pixel Buddy",
+    "description": "The buddy's face and focus countdown: click to call it over, right-click for its menu",
+    "category": "Fun",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {}
   }
 }

@@ -228,3 +228,25 @@ test("docs: the README lists every IPC function and reaction", () => {
   const World = js("World")
   for (const name of World.REACTIONS) assert.ok(readme.includes("`" + name + "`"), "README lists reaction " + name)
 })
+
+test("sprite: the bar icon crop and the tomato timer", () => {
+  const ch = loadCharacter(characterFiles().find(f => f.endsWith("cat.json")))
+  const comp = Sprite.compose({ character: ch, colors: Schema.resolveColors(ch, "natural"), glyphs: Glyphs })
+  const icon = Sprite.crop(comp, 12)
+  assert.equal(icon.h, 12)
+  assert.equal(icon.w, comp.bbox.x1 - comp.bbox.x0 + 1)
+  for (const [y, x, n] of icon.runs) assert.ok(y >= 0 && y < 12 && x >= 0 && x + n <= icon.w)
+  const tomato = Sprite.compose({ character: ch, colors: Schema.resolveColors(ch, "natural"), glyphs: Glyphs, pose: "sit", prop: "tomato" })
+  assert.ok(tomato.runs.some(r => r[3] === Glyphs.PROPS.tomato.colors.r), "the tomato prop draws")
+})
+
+test("settings: focus, bar and git settings", () => {
+  const s = Settings.coerce({})
+  assert.deepEqual([s.focusMinutes, s.focusBreakMinutes, s.focusDnd, s.barIcon, s.gitCelebrate], [25, 5, true, true, true])
+  assert.equal(s.gitRoots, "~/Work,~/Code,~/Projects,~/src")
+  assert.deepEqual(Settings.parseValue("gitRoots", " ~/Work/, /srv/code ,~/Work"), { ok: true, value: "~/Work,/srv/code" })
+  for (const bad of ["relative", "~/a/../b", "/x,..", "a,b,c,d,e,f", ""]) assert.equal(Settings.parseValue("gitRoots", bad).ok, false, bad)
+  assert.equal(Settings.coerce({ gitRoots: "nope" }).gitRoots, "~/Work,~/Code,~/Projects,~/src")
+  assert.equal(Settings.parseValue("focusMinutes", "181").ok, false)
+  assert.deepEqual(Settings.parseValue("focusBreakMinutes", "10"), { ok: true, value: 10 })
+})

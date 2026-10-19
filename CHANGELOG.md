@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0: Focus
+
+### Added
+
+- **Focus timer.** Rounds of `focusMinutes` (25) with Do Not Disturb on, then a `focusBreakMinutes` (5) break with a stretch, then "Another round?". During a round the buddy jumps up through a portal and waits on the bar, leaving your windows alone, and the bar icon shows its face and the minutes left; when the round ends it drops back down under the icon. Start it from the bar icon (middle-click), the menu, `omarchy-shell pixel-buddy focus toggle` or a keyboard shortcut. Rounds survive suspend and shell restarts, and Do Not Disturb is only switched off if the timer switched it on.
+- **Bar icon.** The plugin is now also a bar widget: the buddy's face and the focus countdown, in the bar section you choose (the menu's **Bar** row, or `omarchy-shell pixel-buddy bar left|center|right`). Click calls the buddy over (it drops out of a portal under the icon), right-click opens the menu, middle-click starts or stops focus. `barIcon: false` hides just the icon.
+- **Git celebrations.** A cheer on commits and a leap on pushes, in repositories under `gitRoots` (`~/Work,~/Code,~/Projects,~/src`). Only the action word of new reflog entries is read, never commit messages, branch names or paths. At most one every 20 seconds and 40 a day, muted for a minute during commit bursts, quiet while the buddy is hidden or away. Uses inotifywait when installed, otherwise checks every 30 seconds.
+- New settings `focusMinutes`, `focusBreakMinutes`, `focusDnd`, `barIcon`, `gitCelebrate` and `gitRoots`; IPC calls `focus`, `git` and `bar`; reactions `leap` and `sparkle`.
+
+### Upgrading from 0.2
+
+- After `omarchy plugin update tannerburns.pixel-buddy && omarchy restart shell`, run `bash ~/.config/omarchy/plugins/tannerburns.pixel-buddy/scripts/add-to-bar.sh` once to put the icon on the bar. It keeps your settings. Until then the buddy works as before, but `omarchy plugin list` shows it as disabled.
+- Once the icon is on the bar, removing the widget from the bar also removes the buddy. Use `barIcon: false` to hide just the icon.
+
 ## 0.2.0: Moves & polish
 
 ### Added

@@ -17,15 +17,18 @@ function scaled(v, k) { return v * (k || BASE_K) / BASE_K }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v }
 
 // A hop from (x0, y0) to (x1, y1) as a quadratic Bezier peaking above both.
-function hop(x0, y0, x1, y1, k) {
+// `lift` (optional, at art scale 3) asks for a higher peak, e.g. a leap in place.
+function hop(x0, y0, x1, y1, k, lift) {
   var dx = x1 - x0, dy = y1 - y0
   var dist = Math.sqrt(dx * dx + dy * dy)
-  var lift = scaled(clamp(16 + Math.abs(dx) * 0.16, 16, 110), k)
-  var top = Math.min(y0, y1) - lift
+  var up = scaled(lift > 0 ? clamp(lift, 16, 160) : clamp(16 + Math.abs(dx) * 0.16, 16, 110), k)
+  var top = Math.min(y0, y1) - up
+  var dur = clamp(0.3 + dist / scaled(1500, k), 0.3, 0.9)
+  if (lift > 0) dur = clamp(0.35 + up / scaled(250, k), 0.35, 0.9)
   return {
     x0: x0, y0: y0, x1: x1, y1: y1,
     cx: (x0 + x1) / 2, cy: 2 * top - (y0 + y1) / 2,
-    dur: clamp(0.3 + dist / scaled(1500, k), 0.3, 0.9)
+    dur: dur
   }
 }
 

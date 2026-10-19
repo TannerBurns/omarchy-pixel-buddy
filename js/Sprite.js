@@ -271,7 +271,22 @@ function frameBox(character, pose, index) {
   return x1 < 0 ? { x0: 0, y0: 0, x1: character.w - 1, y1: character.h - 1 } : { x0: x0, y0: y0, x1: x1, y1: y1 }
 }
 
+// The opaque part of a composed sprite as runs relative to its bounding box,
+// keeping at most the top `rows` rows (a face-sized icon for the bar).
+function crop(comp, rows) {
+  var b = comp.bbox
+  if (!b) return { runs: [], w: 0, h: 0 }
+  var h = Math.min(rows > 0 ? rows : Infinity, b.y1 - b.y0 + 1)
+  var runs = []
+  for (var i = 0; i < comp.runs.length; i++) {
+    var r = comp.runs[i]
+    if (r[0] < b.y0 || r[0] >= b.y0 + h) continue
+    runs.push([r[0] - b.y0, r[1] - b.x0, r[2], r[3]])
+  }
+  return { runs: runs, w: b.x1 - b.x0 + 1, h: h }
+}
+
 if (typeof module !== "undefined") module.exports = {
-  PAD: PAD, compose: compose, frameBox: frameBox, toRuns: toRuns, mix: mix,
+  PAD: PAD, compose: compose, frameBox: frameBox, toRuns: toRuns, mix: mix, crop: crop,
   hexToRgb: hexToRgb, rgbToHex: rgbToHex, mirrorRows: mirrorRows
 }

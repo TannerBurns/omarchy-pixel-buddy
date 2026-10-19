@@ -1,6 +1,6 @@
 # Pixel Buddy for Omarchy
 
-**A pixel-art desktop buddy that hops between your windows, follows you through a portal on every workspace switch, reacts to what you're working on, and reminds you to stretch.**
+**A pixel-art desktop buddy that hops between your windows, follows you through a portal on every workspace switch, reacts to what you're working on, keeps you company through focus sessions, and reminds you to stretch.**
 
 <p align="center">
   <img src="preview.png" alt="Pixel Buddy: seventeen pixel-art characters and a knight stepping out of a portal" width="900">
@@ -19,6 +19,9 @@ omarchy plugin add https://github.com/TannerBurns/omarchy-pixel-buddy --enable -
 - **Drag it anywhere.** Pick it up, fling it, drop it. Where you drop it on or under a window becomes its spot for that app.
 - **Signature moves.** Double-click it and each character does its own thing: the puppy wags, the frog flicks its tongue, the dragon puffs fire, the penguin belly-slides. Now and then it shows off on its own.
 - **Character handoffs.** Pick a new character (or let the daily surprise change) and the old one walks into a portal while the new one steps out of another.
+- **Focus timer.** Start a focus round (25 minutes by default) and the buddy turns on Do Not Disturb and jumps up through a portal to wait on your bar, leaving your windows alone, with the minutes left next to its face. When the round ends it drops back down, offers a stretch for your break, and asks if you want another round.
+- **On your bar.** Its face sits on the bar, in the left, center or right section, as you like. Click it to call the buddy over (it drops out of a portal right under the icon), right-click for the menu, middle-click to start or stop focus.
+- **Git celebrations.** It celebrates when you commit and leaps when you push, in any repository under your work folders. It only ever reads git's one-word record of what happened, never your commit messages.
 - **It notices your system.** It spins when you change your Omarchy theme (theme-tinted buddies recolor mid-spin) and can celebrate a finished `omarchy update` (see [Update celebration](#update-celebration)).
 - **Stretch reminders that change every time.** After a long stretch of work it waits for a natural pause, then walks you through one of 22 stretches across eight categories and acts each one out. After long coding sessions it favors wrists, eyes and neck; it never picks the same category twice in a row. It stays quiet during fullscreen apps, Do Not Disturb and screen sharing.
 - **Bring your own character.** Drop a JSON file of pixel rows into `~/.config/pixel-buddy/characters/` and it appears in the menu. Edits show up live.
@@ -46,12 +49,21 @@ Omarchy shows its standard warning about third-party plugins, clones the reposit
 
 **Update:** `omarchy plugin update tannerburns.pixel-buddy && omarchy restart shell`. The buddy stays loaded while other plugins reload, so a new version takes effect when the shell restarts.
 
+**Updating from 0.2 or earlier?** Run this once after the shell restarts, to put the buddy's icon on your bar. It keeps your settings:
+
+```bash
+bash ~/.config/omarchy/plugins/tannerburns.pixel-buddy/scripts/add-to-bar.sh
+```
+
+Until you do, the buddy keeps working but `omarchy plugin list` shows it as disabled.
+
 ### Keyboard shortcut (optional)
 
-Add this to `~/.config/hypr/bindings.lua` to show and hide the buddy:
+Add these to `~/.config/hypr/bindings.lua` to show and hide the buddy, and to start or stop a focus round:
 
 ```lua
 o.bind("SUPER + ALT + B", "Pixel Buddy", "omarchy-shell pixel-buddy toggle")
+o.bind("SUPER + ALT + P", "Pixel Buddy focus", "omarchy-shell pixel-buddy focus toggle")
 ```
 
 ## Uninstall
@@ -61,7 +73,7 @@ omarchy plugin remove tannerburns.pixel-buddy
 rm -rf ~/.local/state/pixel-buddy ~/.config/pixel-buddy   # optional: saved spots, stretch history, custom characters
 ```
 
-Remove the keyboard shortcut too if you added it, and the update hook if you installed it (`rm ~/.config/omarchy/hooks/post-update.d/pixel-buddy.sh`).
+Removing the plugin takes its bar icon with it. The icon is also the plugin's place in your Omarchy settings: remove the widget from the bar and the buddy goes too (to hide just the icon, use `set barIcon false`). Remove the keyboard shortcuts too if you added them, and the update hook if you installed it (`rm ~/.config/omarchy/hooks/post-update.d/pixel-buddy.sh`).
 
 ## Usage
 
@@ -70,8 +82,10 @@ Remove the keyboard shortcut too if you added it, and the update hook if you ins
 | Drag | Pick it up and move it. Fling it to throw it. |
 | Click | Pet it. |
 | Double-click | Its signature move. |
-| Right-click | Menu: character, surprise me daily, mode, size, colors, motion, stretch now, snooze reminders, hide. |
+| Right-click | Menu: character, surprise me daily, mode, size, colors, motion, bar section, focus, stretch now, snooze reminders, hide. |
+| Bar icon | Click: call the buddy over. Middle-click: start or stop focus. Right-click: the menu. Hover: next stretch and focus time. |
 | Super+Alt+B | Show or hide it (with the shortcut above). |
+| Super+Alt+P | Start or stop a focus round (with the shortcut above). |
 
 Everything is also scriptable:
 
@@ -83,6 +97,9 @@ omarchy-shell pixel-buddy character frog         # or: daily (plays the portal h
 omarchy-shell pixel-buddy mode stay              # hopper, patrol, roam, stay
 omarchy-shell pixel-buddy set breakMinutes 30    # any setting below
 omarchy-shell pixel-buddy stretch                # a stretch break right now
+omarchy-shell pixel-buddy focus toggle           # also: start, stop, status, or minutes (focus 50)
+omarchy-shell pixel-buddy git status | jq        # also: rescan
+omarchy-shell pixel-buddy bar left               # move the bar icon: left, center or right
 omarchy-shell pixel-buddy answer done            # answer an open stretch bubble: done, later, skip
 omarchy-shell pixel-buddy react celebrate        # a reaction, see below
 omarchy-shell pixel-buddy warp left              # play a workspace portal: left, right or down
@@ -118,6 +135,8 @@ omarchy-shell pixel-buddy debug | jq             # monitors, ledges and perches 
 | `charging` | A lightning bolt. |
 | `hang` | Climbs up and dangles from the focused window. |
 | `hop` | Hops back to its spot. |
+| `leap` | A big hop in place with a lightning bolt (a git push). |
+| `sparkle` | A sparkle. |
 
 ## Movement modes
 
@@ -147,6 +166,12 @@ Settings live in the plugin's entry in `~/.config/omarchy/shell.json`. The right
 | `stretches` | `all` | Categories to use, e.g. `wrists,eyes,neck`. |
 | `bedtime` | `23:00` | When it starts yawning and suggests wrapping up for the night; `off` turns it off. |
 | `battery` | `true` | A tired face on low battery, a sparkle when you plug in. |
+| `focusMinutes` | `25` | Length of a focus round (1-180). |
+| `focusBreakMinutes` | `5` | The break after it (1-60). |
+| `focusDnd` | `true` | Turn on Do Not Disturb during focus. |
+| `barIcon` | `true` | Show the buddy's icon on the bar. `false` hides just the icon. |
+| `gitCelebrate` | `true` | Cheer on commits and leap on pushes. |
+| `gitRoots` | `~/Work,~/Code,~/Projects,~/src` | Up to five folders to look for repositories in (four levels deep). Missing ones are skipped. |
 
 ```bash
 omarchy-shell pixel-buddy set colors theme
@@ -172,6 +197,24 @@ It doesn't repeat a stretch until it has used every one in the categories you al
 
 After `bedtime` it wears a nightcap, yawns more, and once a night suggests wrapping up. The menu's **Snooze reminders 1h** pauses stretch reminders for an hour.
 
+## Focus timer
+
+Start a round from the bar icon (middle-click), the menu, `Super+Alt+P` or `omarchy-shell pixel-buddy focus toggle`. The buddy jumps up through a portal and waits on the bar for `focusMinutes`, so nothing moves on your windows; the bar icon shows its face and the minutes left. Stretch reminders and notifications wait too: it turns on Do Not Disturb when the round starts, if it was off. (With the bar icon hidden it stays on screen instead, sitting quietly beside a tomato timer.)
+
+When the round ends it switches Do Not Disturb back off, drops back down out of a portal under the bar icon, cheers, and offers a stretch for your `focusBreakMinutes` break. After the break it asks whether you want another round. Do Not Disturb follows you: if you switch it off by hand during a round, the buddy leaves it off, and if it was already on before you started, the buddy leaves it on. Rounds keep running while the buddy is hidden and survive a shell restart or a suspend.
+
+`omarchy-shell pixel-buddy focus 50` starts a 50-minute round once, without changing `focusMinutes`.
+
+## Bar icon
+
+The buddy's face sits on the right of the bar when you install it. Move it with the menu's **Bar** row (Left, Center, Right), `omarchy-shell pixel-buddy bar center`, or Omarchy's own `omarchy bar move tannerburns.pixel-buddy --section left`. `set barIcon false` hides just the icon; during focus the buddy then stays on screen.
+
+## Git celebrations
+
+The buddy watches the repositories under `gitRoots` and reacts when you commit (its signature move) or push (a big leap with a lightning bolt). Fetching, pulling, switching branches and rebasing don't count. It celebrates at most every 20 seconds and 40 times a day, stays quiet while it's hidden or waiting on the bar during focus, and goes quiet for a minute when commits pour in (an agent at work).
+
+It reads the action word of each new entry in git's reflog (`commit`, `commit (amend)`, `update by push`) and nothing else: no commit messages, branch names, file names or remotes leave the small watcher script. New repositories are picked up within 30 minutes; `omarchy-shell pixel-buddy git rescan` looks right away. It uses `inotifywait` (from inotify-tools) when it's installed, and otherwise checks every 30 seconds.
+
 ## Battery saver
 
 Each frame the buddy draws costs a little CPU, so on battery it does less: fewer, slower animation frames, less wandering, no dangling or showing off on its own, and slower checks of the pointer and your windows. Workspace portals and stretch reminders work as usual. `batterySaver` set to `on` keeps it that way on power too, and `off` turns it off. `status` reports `"saver": true` while it's active.
@@ -194,12 +237,15 @@ Put a character file in `~/.config/pixel-buddy/characters/` and pick it from the
 
 - Window titles are only used to guess what kind of work you're doing (coding, browsing, chat and so on). They are never stored, logged or shown; `status` and `debug` report categories and window classes only.
 - It notices that a notification arrived, from a new file in Omarchy's notification folder, but never reads it. Notifications held back by Do Not Disturb don't reach that folder.
+- Git celebrations read only the one-word action of new reflog entries in your repositories. Commit messages, branch names, file names and remotes are never read into the buddy, stored or logged.
+- The focus timer switches Do Not Disturb through Omarchy's own notification service, and only back off when it was the one that switched it on.
 - Everything stays on your machine. The plugin makes no network requests.
 
 ## Requirements
 
 - Omarchy 4 (its shell runs on Quickshell 0.3 or newer) on Hyprland
 - UPower for the battery moods (installed with Omarchy)
+- Optional: `inotify-tools`, so git celebrations happen the moment you commit instead of within 30 seconds
 
 ## Development
 
@@ -219,7 +265,8 @@ git push && omarchy plugin update tannerburns.pixel-buddy && omarchy restart she
 ```
 
 - **Dev harness:** disable the installed copy first (`omarchy plugin disable tannerburns.pixel-buddy`) or you'll see two buddies. Its IPC lives at `qs ipc -p "$XDG_RUNTIME_DIR/pixel-buddy-dev" call pixel-buddy status`.
-- **Layout:** the behavior is plain JavaScript in `js/`. `World.js` is the state machine, `Sprite.js` the compositor, and `Portal.js`, `Platforms.js`, `Motion.js`, `Activity.js`, `Roster.js` and `Wellbeing.js` handle the rest. All of it is unit-tested with node. The QML files connect it to Hyprland, input and drawing.
+- **Layout:** the behavior is plain JavaScript in `js/`. `World.js` is the state machine, `Sprite.js` the compositor, and `Portal.js`, `Platforms.js`, `Motion.js`, `Activity.js`, `Roster.js`, `Wellbeing.js`, `Focus.js`, `GitLog.js` and the rest handle the rest. All of it is unit-tested with node, and `helpers/git-watch.sh` is tested against real repositories. The QML files connect it to Hyprland, input, the bar and drawing.
+- **Dev harness:** the harness shows the bar icon in a small strip under the top-right corner, and its scratch settings keep focus away from your real Do Not Disturb.
 - **Logs:** `quickshell log -p /usr/share/omarchy/shell -f`.
 
 ## Credits

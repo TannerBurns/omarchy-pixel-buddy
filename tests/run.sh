@@ -16,7 +16,7 @@ skip() { printf '  skip  %s\n' "$1"; }
 echo "static"
 if out=$(bash "$TESTS_DIR/check-plugin.sh" "$PLUGIN_DIR" 2>&1); then pass "plugin checks (manifest, versions, JSON, scripts)"; else fail "plugin checks" "$out"; fi
 if command -v shellcheck >/dev/null; then
-  mapfile -t scripts < <(find "$PLUGIN_DIR/tests" "$PLUGIN_DIR/scripts" "$PLUGIN_DIR/hooks" -name '*.sh' -type f)
+  mapfile -t scripts < <(find "$PLUGIN_DIR/tests" "$PLUGIN_DIR/scripts" "$PLUGIN_DIR/hooks" "$PLUGIN_DIR/helpers" -name '*.sh' -type f)
   if out=$(shellcheck -S warning "${scripts[@]}" 2>&1); then pass "shellcheck"; else fail "shellcheck" "$out"; fi
 else
   skip "shellcheck (not installed)"
@@ -35,6 +35,17 @@ else
   else
     fail "node --test" "$(grep -E 'not ok|Error|expected|actual|location' <<<"$out" | head -40)"
   fi
+fi
+
+echo "helpers"
+if command -v git >/dev/null; then
+  if out=$(bash "$TESTS_DIR/git-watch.test.sh" 2>&1); then
+    pass "git watcher ($(grep -c '^  ok ' <<<"$out") checks)"
+  else
+    fail "git watcher" "$(grep -E '^  FAIL|rror' <<<"$out" | head -20)"
+  fi
+else
+  skip "git watcher (needs git)"
 fi
 
 echo "characters"

@@ -5,7 +5,8 @@ import "js/Roster.js" as Roster
 // Wellbeing nudges. Counts active time (idle stretches of 5+ minutes count as
 // a break), and once a break is due waits for a natural pause before the buddy
 // offers a guided stretch. Never during fullscreen, Do Not Disturb or screen
-// sharing. Also the once-a-night bedtime nudge.
+// sharing, and held while a focus session runs. Also the once-a-night bedtime
+// nudge, and one-off bubbles for the focus timer (offer / answered).
 Item {
   id: coach
 
@@ -13,13 +14,14 @@ Item {
   property var senses: null
   property var controller: null
   property bool hidden: false
+  property bool focusing: false       // a focus session holds stretch breaks
   property var session: Wellbeing.newSession(Date.now())
   property var moodSeconds: ({})
 
   // Bubble state
   property bool active: false
   property bool collapsed: false
-  property string kind: ""            // "stretch" | "bedtime"
+  property string kind: ""            // "stretch" | "bedtime" | an offer() kind
   property var stretch: null
   property int stepIndex: 0
   property int stepLeft: 0
@@ -36,6 +38,9 @@ Item {
 
   // Something worth saving changed (the session object is mutated in place).
   signal persist()
+  // The answer to an offer() bubble ("expired" when it folded away unanswered,
+  // "later" when the buddy was hidden).
+  signal answered(string kind, string id)
   property int revision: 0
   onPersist: coach.revision++
 
@@ -45,6 +50,7 @@ Item {
 
   function blockers() {
     return {
+      focus: coach.focusing,
       hidden: coach.hidden,
       fullscreen: coach.senses ? coach.senses.fullscreen : false,
       dnd: coach.senses ? coach.senses.dnd : false,
@@ -86,7 +92,7 @@ Item {
     if (!st.due && coach.settings.wellbeing && coach.settings.bedtime) {
       var date = new Date(now)
       var b = coach.blockers()
-      if (!b.hidden && !b.fullscreen && !b.dnd && !b.screencast && Wellbeing.bedtimeNudgeDue(s, date, coach.settings.bedtime, Roster.dayKey(date)))
+      if (!b.focus && !b.hidden && !b.fullscreen && !b.dnd && !b.screencast && Wellbeing.bedtimeNudgeDue(s, date, coach.settings.bedtime, Roster.dayKey(date)))
         coach.offerBedtime()
     }
   }
@@ -103,6 +109,7 @@ Item {
     if (st.reason === "off") return "off"
     if (st.due) return "now"
     if (st.remainingMs !== undefined) return Math.ceil(st.remainingMs / 60000) + " min" + (st.reason === "snoozed" ? " (snoozed)" : "")
+    if (st.reason === "focus") return "after focus"
     return st.reason
   }
 
@@ -189,11 +196,37 @@ Item {
     coach.persist()
   }
 
+  // A one-off bubble for another part of the buddy (the focus timer).
+  // content: { title, body, buttons, react, force }. It replaces whatever was
+  // showing (an open stretch counts as "later"); `force` shows it past
+  // fullscreen, DND and screen sharing. The answer comes back on answered().
+  function offer(kind, content) {
+    if (coach.hidden) return false
+    var b = coach.blockers()
+    if (!content.force && (b.fullscreen || b.dnd || b.screencast)) return false
+    if (coach.active) coach.answer(coach.kind === "bedtime" ? "ok" : "later")
+    coach.kind = kind
+    coach.stretch = null
+    coach.title = content.title
+    coach.body = content.body || ""
+    coach.footer = ""
+    coach.stepTotal = 0
+    coach.stepsDone = true
+    coach.buttons = content.buttons
+    coach.collapsed = false
+    coach.shownAt = Date.now()
+    coach.active = true
+    if (content.react && coach.controller) coach.controller.react(content.react)
+    expiry.restart()
+    return true
+  }
+
   function answer(id) {
     if (!coach.active) return
     stepTimer.stop()
     expiry.stop()
     var now = Date.now()
+    var kind = coach.kind
     if (coach.kind === "stretch") {
       var outcome = id === "done" ? "done" : id === "later" ? "later" : id === "expired" ? "expired" : "skip"
       Wellbeing.finish(coach.session, now, coach.stretch, outcome, Roster.dayKey(new Date(now)))
@@ -206,6 +239,7 @@ Item {
     coach.kind = ""
     coach.stretch = null
     coach.persist()
+    if (kind !== "stretch" && kind !== "bedtime") coach.answered(kind, id)
   }
 
   function snooze(minutes) {

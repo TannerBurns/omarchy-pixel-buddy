@@ -122,13 +122,16 @@ function tick(s, now, userActive) {
 
 function breakTaken(s) { s.activeMs = 0; return s }
 
-// cfg: { enabled, breakMinutes }  ctx: { fullscreen, dnd, screencast, hidden }
+// cfg: { enabled, breakMinutes }  ctx: { focus, fullscreen, dnd, screencast, hidden }
+// A focus session holds a due break until it ends (its own break offers the
+// stretch), so "focus" comes before the other reasons.
 function status(s, now, cfg, ctx) {
   if (!cfg.enabled) return { due: false, reason: "off" }
   var remaining = cfg.breakMinutes * 60000 - s.activeMs
   if (remaining > 0) return { due: false, reason: "active", remainingMs: remaining }
   if (now < s.snoozeUntil) return { due: false, reason: "snoozed", remainingMs: s.snoozeUntil - now }
   var c = ctx || {}
+  if (c.focus) return { due: false, reason: "focus" }
   if (c.hidden) return { due: false, reason: "hidden" }
   if (c.fullscreen) return { due: false, reason: "fullscreen" }
   if (c.dnd) return { due: false, reason: "dnd" }

@@ -30,7 +30,13 @@ var SPEC = [
   { key: "breakMinutes", type: "int", def: 45, min: 1, max: 480 },
   { key: "stretches", type: "categories", def: "all" },
   { key: "bedtime", type: "bedtime", def: "23:00" },
-  { key: "battery", type: "bool", def: true }
+  { key: "battery", type: "bool", def: true },
+  { key: "focusMinutes", type: "int", def: 25, min: 1, max: 180 },
+  { key: "focusBreakMinutes", type: "int", def: 5, min: 1, max: 60 },
+  { key: "focusDnd", type: "bool", def: true },
+  { key: "barIcon", type: "bool", def: true },
+  { key: "gitCelebrate", type: "bool", def: true },
+  { key: "gitRoots", type: "roots", def: "~/Work,~/Code,~/Projects,~/src" }
 ]
 
 var DEFAULTS = {}
@@ -84,6 +90,24 @@ function toBedtime(v, fallback) {
   return (h < 10 ? "0" : "") + h + ":" + m[2]
 }
 
+// Folders to look for git repositories in: up to five comma-separated paths,
+// each absolute or under ~, never climbing with "..". Returns the normalized
+// "a,b" string, or `fallback` when anything is off.
+var MAX_ROOTS = 5
+function toRoots(v, fallback) {
+  if (Array.isArray(v)) v = v.join(",")
+  var parts = str(v).split(",").map(function (p) { return p.trim().replace(/\/+$/, "") }).filter(function (p) { return p.length > 0 })
+  if (parts.length === 0 || parts.length > MAX_ROOTS) return fallback
+  var out = []
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i]
+    if (!(p === "~" || p.indexOf("~/") === 0 || p.indexOf("/") === 0)) return fallback
+    if (p.split("/").indexOf("..") >= 0 || /[\n\0]/.test(p)) return fallback
+    if (out.indexOf(p) < 0) out.push(p)
+  }
+  return out.join(",")
+}
+
 // "all" or a comma/space separated list of categories → array of categories.
 function toCategories(v) {
   if (Array.isArray(v)) v = v.join(",")
@@ -120,6 +144,13 @@ var TYPES = {
   bedtime: {
     read: function (v, s) { return toBedtime(v === undefined ? s.def : v, s.def) },
     parse: function (v, s) { var t = toBedtime(v, NONE); return t === NONE ? fail("bedtime must be HH:MM or off") : ok(t) }
+  },
+  roots: {
+    read: function (v, s) { return toRoots(v === undefined ? s.def : v, s.def) },
+    parse: function (v, s) {
+      var r = toRoots(v, NONE)
+      return r === NONE ? fail(s.key + " must be up to " + MAX_ROOTS + " comma-separated folders, each absolute or under ~") : ok(r)
+    }
   },
   categories: {
     read: function (v, s) { return toCategories(v === undefined ? s.def : v) },
@@ -171,13 +202,18 @@ function entryWith(raw, id, key, value) {
 // Where the plugin's settings live in shell.json. Once the plugin has a bar
 // widget, Omarchy writes settings to the bar entry (shell.qml updateEntryInline
 // looks there first), so a bar entry wins and is merged over plugins[].
+// `section` is the bar section the icon is in ("" when it isn't on the bar).
 function findEntry(cfg, id) {
   var layout = cfg && cfg.bar && cfg.bar.layout && typeof cfg.bar.layout === "object" ? cfg.bar.layout : {}
-  var bar = null, plug = null
+  var bar = null, plug = null, section = ""
   var sections = ["left", "center", "right"]
   for (var s = 0; s < sections.length; s++) {
     var list = Array.isArray(layout[sections[s]]) ? layout[sections[s]] : []
-    for (var i = 0; i < list.length; i++) if (!bar && list[i] && list[i].id === id) bar = list[i]
+    for (var i = 0; i < list.length; i++) {
+      if (bar || !list[i]) continue
+      if (list[i] === id) { bar = {}; section = sections[s] }
+      else if (list[i].id === id) { bar = list[i]; section = sections[s] }
+    }
   }
   var plugins = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
   for (var j = 0; j < plugins.length; j++) if (plugins[j] && plugins[j].id === id) plug = plugins[j]
@@ -185,13 +221,13 @@ function findEntry(cfg, id) {
   var k
   if (plug) for (k in plug) entry[k] = plug[k]
   if (bar) for (k in bar) entry[k] = bar[k]
-  return { entry: entry, home: bar ? "bar" : plug ? "plugins" : "" }
+  return { entry: entry, home: bar ? "bar" : plug ? "plugins" : "", section: section }
 }
 
 if (typeof module !== "undefined") module.exports = {
   SPEC: SPEC, DEFAULTS: DEFAULTS, KEYS: KEYS, SIZES: SIZES, CATEGORIES: CATEGORIES, MODES: MODES,
   COLORS: COLORS, MOTIONS: MOTIONS, WARPS: WARPS, SCREENCAST: SCREENCAST, SAVER: SAVER,
   specFor: specFor, toBool: toBool, toInt: toInt, oneOf: oneOf, toCharacter: toCharacter,
-  toBedtime: toBedtime, toCategories: toCategories, coerce: coerce, parseValue: parseValue,
+  toBedtime: toBedtime, toCategories: toCategories, toRoots: toRoots, coerce: coerce, parseValue: parseValue,
   entryWith: entryWith, findEntry: findEntry
 }

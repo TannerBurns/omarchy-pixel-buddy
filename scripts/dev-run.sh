@@ -18,7 +18,9 @@ ln -sfn "$SHELL_DIR/Commons" "$DEV/Commons"
 ln -sfn "$SHELL_DIR/Ui" "$DEV/Ui"
 ln -sfn "$REPO" "$DEV/plugin"
 cp "$REPO/dev/harness.qml" "$DEV/shell.qml"
-[[ -f $DEV/shell.json ]] || printf '{\n  "version": 1,\n  "plugins": [{ "id": "tannerburns.pixel-buddy" }]\n}\n' >"$DEV/shell.json"
+# Focus never touches your real Do Not Disturb from here, and git celebrations
+# stay with the installed copy (turn them on with `set` when testing them).
+[[ -f $DEV/shell.json ]] || printf '{\n  "version": 1,\n  "plugins": [{ "id": "tannerburns.pixel-buddy", "focusDnd": false, "gitCelebrate": false }]\n}\n' >"$DEV/shell.json"
 
 export PIXEL_BUDDY_DEV="$DEV"
 exec qs -p "$DEV" "$@"

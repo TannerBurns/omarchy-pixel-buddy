@@ -1,11 +1,14 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 import "plugin" as Buddy
 
 // Development harness (see scripts/dev-run.sh): runs the plugin in its own
 // Quickshell instance with live reload. A stub stands in for Omarchy's shell
-// facade and writes settings to a scratch shell.json instead of yours.
+// facade and writes settings to a scratch shell.json instead of yours, and a
+// small strip under the top-right corner stands in for the bar, hosting the
+// plugin's bar widget against this instance's service.
 ShellRoot {
   id: harness
 
@@ -30,8 +33,60 @@ ShellRoot {
   }
 
   Buddy.Service {
+    id: service
     settingsPath: harness.dir + "/shell.json"
     stateDir: harness.dir + "/state"
     shell: stubShell
+  }
+
+  QtObject {
+    id: barStub
+    property QtObject shell: QtObject {
+      function serviceFor(id) { return id === "tannerburns.pixel-buddy" ? service : null }
+    }
+    property color foreground: "#c0caf5"
+    property color barForeground: "#c0caf5"
+    property color background: "#1a1b26"
+    property string fontFamily: "monospace"
+    property string position: "top"
+    property bool vertical: false
+    property int barSize: 30
+    property bool foregroundAnimationEnabled: true
+    property var activePopout: null
+    function showTooltip(target, text) { console.log("bar tooltip: " + text.replace(/\n/g, " | ")) }
+    function hideTooltip(target) {}
+    function run(command) { console.log("bar run: " + command) }
+    function requestPopout(owner) { barStub.activePopout = owner }
+    function releasePopout(owner) { if (barStub.activePopout === owner) barStub.activePopout = null }
+  }
+
+  // Full width like the real bar (so the icon's x is the monitor's), but only
+  // the strip on the right is drawn or takes clicks.
+  PanelWindow {
+    anchors { top: true; left: true; right: true }
+    margins { top: 40 }
+    implicitHeight: barStub.barSize
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.namespace: "pixel-buddy-dev-bar"
+    WlrLayershell.layer: WlrLayer.Overlay
+    color: "transparent"
+    mask: Region { item: devStrip }
+
+    Rectangle {
+      id: devStrip
+      anchors.right: parent.right
+      anchors.rightMargin: 12
+      width: devWidget.implicitWidth + 16
+      height: parent.height
+      color: "#e61a1b26"
+
+      Buddy.BarWidget {
+        id: devWidget
+        anchors.centerIn: parent
+        height: barStub.barSize
+        bar: barStub
+        moduleName: "tannerburns.pixel-buddy"
+      }
+    }
   }
 }

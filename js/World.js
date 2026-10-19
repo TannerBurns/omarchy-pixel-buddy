@@ -35,7 +35,7 @@ function create(opts) {
     lastHopAt: -100, lastHangAt: -1000, lastDecideAt: 0,
     mood: "playful", moodProp: null, moodEmote: null, night: false, tired: false,
     napping: false, hidden: false, stretchAnim: null, stretchT: 0,
-    saver: false, policy: null, swapWanted: false, lastSpecialAt: -1000, spinUntil: -1,
+    saver: false, policy: null, swapWanted: false, lastSpecialAt: -1000, spinUntil: -1, focusing: false, awayFrom: null,
     env: { mon: null, ledges: [], perch: null, focused: null },
     out: []
   }
@@ -132,7 +132,7 @@ function place(w, pos) {
 function setEnv(w, env) {
   w.env = env
   if (!env.mon) return
-  if (!w.placed) return
+  if (!w.placed || w.st === "away") return
   if (w.st === "portal") { refinePortal(w); return }
   if (w.st === "carried" || w.st === "thrown" || w.st === "glide") return
   if (!gravity(w)) { clampToMonitor(w); return }
@@ -193,7 +193,8 @@ function setMood(w, mood, prop, emote) {
   w.mood = mood
   w.moodProp = prop || null
   w.moodEmote = emote || null
-  if (w.st === "sit" && w.prop !== w.moodProp) w.prop = w.moodProp
+  // While focusing it keeps its tomato timer whatever you switch to.
+  if (w.st === "sit" && !w.focusing && w.prop !== w.moodProp) w.prop = w.moodProp
 }
 
 function setFlags(w, f) {
@@ -203,6 +204,21 @@ function setFlags(w, f) {
   if (f.warp !== undefined) w.warp = f.warp
   if (f.saver !== undefined) w.saver = !!f.saver
   if (f.policy !== undefined) w.policy = f.policy || null
+  if (f.focusing !== undefined) setFocusing(w, !!f.focusing)
+}
+
+// The focus timer: the buddy settles down beside its tomato timer and stays
+// put (no wandering, dangling or showing off). Window focus changes only make
+// it glance; workspace portals still work.
+function setFocusing(w, on) {
+  if (w.focusing === on) return
+  w.focusing = on
+  if (!w.placed || w.hidden) return
+  if (on) {
+    if (["idle", "sit", "walk", "land", "special"].indexOf(w.st) >= 0) sit(w)
+  } else if (w.st === "sit" && w.prop === "tomato") {
+    idle(w, 1.5)
+  }
 }
 
 // ------------------------------------------------------------- expressions
@@ -223,9 +239,9 @@ function lookToward(w, px, py) {
 function idle(w, secs) { enter(w, "idle", secs === undefined ? 2 + w.rng() * 4 : secs) }
 
 function sit(w) {
-  enter(w, "sit", 8 + w.rng() * 14)
-  w.prop = w.moodProp
-  if (w.moodEmote && w.rng() < 0.5) setEmote(w, w.moodEmote, 1.6)
+  enter(w, "sit", w.focusing ? 30 + w.rng() * 30 : 8 + w.rng() * 14)
+  w.prop = w.focusing ? "tomato" : w.moodProp
+  if (!w.focusing && w.moodEmote && w.rng() < 0.5) setEmote(w, w.moodEmote, 1.6)
 }
 
 function sleep(w, secs) {
@@ -233,7 +249,7 @@ function sleep(w, secs) {
   setEmote(w, "zzz", 9999)
 }
 
-var BUSY = ["carried", "portal", "hop", "fall", "thrown", "skid", "glide", "hang"]
+var BUSY = ["carried", "portal", "hop", "fall", "thrown", "skid", "glide", "hang", "away"]
 
 // The character's signature move (its `special` pose; characters without one
 // fall back to cheer). Optional pose fields: travel (art px per frame, in the
@@ -265,13 +281,13 @@ function stepTravel(w) {
 
 // A quick spin (theme change): facing flips every 0.12 s for a second.
 function spin(w) {
-  if (!w.placed || w.hidden) return
+  if (!w.placed || w.hidden || w.st === "away") return
   w.spinUntil = w.clock + 1.0
   setEmote(w, "sparkle", 1.2)
 }
 
 function canFlourish(w) {
-  return !w.calm && !w.night && !w.tired && pol(w).specials && w.clock - w.lastSpecialAt > 180
+  return !w.calm && !w.night && !w.tired && !w.focusing && pol(w).specials && w.clock - w.lastSpecialAt > 180
 }
 
 // ---- character swap: the old character walks into a portal and the new one
@@ -339,9 +355,9 @@ function goTo(w, perch) {
   hopTo(w, perch.x, targetY, ledge, perch.kind === "hang", perch.facing)
 }
 
-function hopTo(w, x, y, ledge, hang, facing) {
+function hopTo(w, x, y, ledge, hang, facing, lift) {
   w.facing = x >= w.x ? 1 : -1
-  var arc = w.M.hop(w.x, w.y, x, y, w.k)
+  var arc = w.M.hop(w.x, w.y, x, y, w.k, lift)
   w.support = null
   enter(w, "hop", arc.dur, { arc: arc, ledge: ledge, hang: !!hang, facing: facing || w.facing })
 }
@@ -360,6 +376,7 @@ function decide(w) {
   var r = w.rng()
   if (w.napping) return sleep(w, 9999)
   if (w.stretchAnim) return enter(w, "stretch", 9999)
+  if (w.focusing) return w.rng() < 0.85 ? sit(w) : idle(w, 2 + w.rng() * 3)
   if (canFlourish(w) && w.rng() < 0.06 && special(w)) return
   var ws = pol(w).wanderScale
   var perch = w.env.perch
@@ -441,7 +458,7 @@ function startPortal(w, o) {
 // A newer workspace switch while a portal is in flight: retarget instead of queueing.
 function refinePortal(w) {
   var P = w.portal
-  if (!P || P.mini || P.swap) return
+  if (!P || P.mini || P.swap || P.summon || P.away) return
   if (w.mode !== "hopper" || !w.env.perch) return
   var idx = PORTAL_ORDER.indexOf(P.phase)
   if (P.style === "portal" && idx >= PORTAL_ORDER.indexOf("exit")) return
@@ -464,6 +481,12 @@ function arrive(w, dest) {
     w.support = dest.ledge
     w.y = hangFeetY(w, dest.ledge.y)
     enter(w, "hang", 15 + w.rng() * 30)
+  } else if (dest.drop) {
+    // Summoned: out of the portal under the bar, then down to whatever is below.
+    w.support = null
+    w.vx = 0
+    w.vy = 0
+    enter(w, "fall", 99)
   } else if (gravity(w)) {
     w.support = dest.ledge && dest.ledge.kind !== "hang" ? dest.ledge : w.P.supportAt(w.env.ledges, w.x, w.y, halfW(w), 2)
     if (!w.support) { w.vx = 0; w.vy = 0; enter(w, "fall", 99); return }
@@ -487,6 +510,7 @@ function focusChanged(w) {
   if (!w.placed || w.hidden) return
   var f = w.env.focused
   if (f) setLook(w, lookToward(w, f.x + f.w / 2, f.y + f.h / 3), 1.2)
+  if (w.focusing) return
   if (w.mode !== "hopper" || !w.env.perch) return
   if (w.st !== "idle" && w.st !== "sit" && w.st !== "walk" && w.st !== "land") return
   if (atPerch(w, w.env.perch)) return
@@ -496,7 +520,7 @@ function focusChanged(w) {
 }
 
 function workspaceSwitch(w, dir, kind) {
-  if (!w.placed || w.hidden) return
+  if (!w.placed || w.hidden || w.st === "away") return
   w.switches.push(w.clock)
   w.switches = w.switches.filter(function (t) { return w.clock - t <= 2 })
   if (w.switches.length >= 4) w.dizzyUntil = w.clock + 1.8
@@ -532,6 +556,8 @@ function workspaceSwitch(w, dir, kind) {
 // when the portal reaches the gap ("screen" event).
 function monitorSwitch(w, dir, screenName) {
   if (!w.placed || w.hidden) return
+  // Up on the bar: just move along (it comes back down on the new monitor).
+  if (w.st === "away") { emit(w, { type: "screen", screen: screenName }); return }
   startPortal(w, { kind: "side", dir: dir, dest: { x: w.x, y: w.y, ledge: null }, screen: screenName })
 }
 
@@ -548,6 +574,107 @@ function portalOnNewScreen(w) {
   P.exit = P.kind === "side" ? { x: x - P.dir * off, y: y - P.dims.h * w.k / 2 } : { x: x, y: y }
 }
 
+// The bar icon calls the buddy over to `x` (monitor-local). With gravity it
+// drops out of a portal under the bar and falls to whatever is below; in the
+// other modes it portals along the line it's on, which becomes its spot. It
+// stays there a while instead of hopping straight back to its perch.
+function summon(w, x) {
+  if (!w.placed || w.hidden || !w.env.mon || w.st === "carried" || w.st === "away") return false
+  var mon = w.env.mon
+  var hw = halfW(w)
+  var tx = clamp(x, mon.left + hw, mon.right - hw)
+  w.portal = null
+  w.lastHopAt = w.clock + 24
+  if (!gravity(w)) {
+    w.home = { x: tx, y: w.y }
+    startPortal(w, { kind: "floor", dir: tx >= w.x ? 1 : -1, dest: { x: tx, y: w.y, ledge: w.support, facing: tx >= w.x ? -1 : 1 } })
+    return true
+  }
+  dropFromTop(w, tx, false)
+  setExpr(w, "happy", 1.2)
+  return true
+}
+
+function warpStyle(w) { return w.calm && w.warp !== "none" ? "fade" : w.warp }
+
+// An exit-only portal under the bar at tx: the buddy drops out of it and then
+// falls to whatever is below. `appearing`: it isn't on screen now (back from
+// the bar), so a fade only fades in.
+function dropFromTop(w, tx, appearing) {
+  var top = w.env.mon.top + 2 * w.k
+  var dest = { x: tx, y: top + bodyH(w), drop: true, facing: w.facing }
+  exitOnly(w, { x: tx, y: top }, dest, appearing)
+}
+
+function exitOnly(w, exitAt, dest, appearing) {
+  var style = warpStyle(w)
+  if (style === "none") { arrive(w, dest); return }
+  var fadeIn = style === "fade" && appearing
+  w.portal = {
+    style: style, kind: "floor", mini: false, dir: 1, dims: portalDims(w, "floor", false), screen: null,
+    phase: style === "fade" ? (fadeIn ? "fade-in" : "fade-out") : "open-out", pt: 0, step: 0, swap: false, summon: true,
+    dest: dest, from: { x: w.x, y: w.y }, entry: null, exit: exitAt
+  }
+  if (fadeIn) { w.x = dest.x; w.y = dest.y }
+  w.support = null
+  enter(w, "portal", 99)
+}
+
+// Focus: the buddy waits up on the bar. It jumps up through a portal that
+// opens above it and draws nothing ("away") until comeBack(). `instant` skips
+// the jump (a shell restart in the middle of a round).
+function goAway(w, instant) {
+  if (!w.placed || !w.env.mon || w.st === "away" || w.st === "carried") return false
+  if (w.portal && w.portal.away) return false
+  w.awayFrom = { x: w.x, y: w.y, support: w.support, facing: w.facing }
+  w.emote = null
+  w.prop = null
+  var style = warpStyle(w)
+  if (instant || w.hidden || style === "none") { w.portal = null; w.support = null; enter(w, "away", 9999); return true }
+  var top = w.env.mon.top + 2 * w.k
+  w.portal = {
+    style: style, kind: "floor", up: true, away: true, mini: false, dir: w.facing || 1, dims: portalDims(w, "floor", false),
+    screen: null, phase: style === "fade" ? "fade-out" : "open-in", pt: 0, step: 0, swap: false,
+    dest: { x: w.x, y: w.y }, from: { x: w.x, y: w.y }, entry: { x: w.x, y: Math.max(top, w.y - bodyH(w) * 1.6) }, exit: null
+  }
+  w.support = null
+  enter(w, "portal", 99)
+  setExpr(w, "happy", 1)
+  return true
+}
+
+// Back from the bar: with gravity it drops out of a portal under the bar at
+// x (the bar icon; -1 when there's none); otherwise it pops back up out of a
+// portal where it left from.
+function comeBack(w, x) {
+  if (w.st === "portal" && w.portal && w.portal.away) {
+    // Still on its way up: turn around.
+    var back = w.awayFrom || { x: w.x, y: w.y, support: null, facing: w.facing }
+    w.awayFrom = null
+    w.portal = null
+    arrive(w, { x: back.x, y: back.y, ledge: back.support, facing: back.facing })
+    return true
+  }
+  if (w.st !== "away") return false
+  var from = w.awayFrom || { x: w.x, y: w.y, support: null, facing: w.facing }
+  w.awayFrom = null
+  var mon = w.env.mon
+  if (!mon) { idle(w, 1); return true }
+  var hw = halfW(w)
+  if (gravity(w) && x >= 0 && !w.hidden) {
+    w.lastHopAt = w.clock
+    w.x = clamp(x, mon.left + hw, mon.right - hw)
+    dropFromTop(w, w.x, true)
+    return true
+  }
+  var dest = { x: clamp(from.x, mon.left + hw, mon.right - hw), y: from.y, ledge: from.support, facing: from.facing }
+  if (w.hidden) { arrive(w, dest); return true }
+  w.x = dest.x
+  w.y = dest.y
+  exitOnly(w, { x: dest.x, y: dest.y }, dest, true)
+  return true
+}
+
 function portalTick(w, dt) {
   var P = w.portal
   P.pt += dt
@@ -555,6 +682,7 @@ function portalTick(w, dt) {
   if (P.style === "fade") {
     if (P.phase === "fade-out" && P.pt >= FADE_TIME) {
       emit(w, { type: "gap" })
+      if (P.away) { w.portal = null; enter(w, "away", 9999); return }
       if (P.screen) emit(w, { type: "screen", screen: P.screen })
       P.phase = "fade-in"; P.pt = 0
       w.x = P.dest.x; w.y = P.dest.y
@@ -574,22 +702,30 @@ function portalTick(w, dt) {
     P.phase = PORTAL_ORDER[i + 1]
     if (P.phase === "exit") { w.x = P.kind === "side" ? P.exit.x : P.dest.x; w.y = P.kind === "side" ? P.dest.y : P.exit.y }
     // Hold the gap until the next tick, so whoever handles the "gap" event (a
-    // character swap) still sees the portal before its exit is sized.
-    if (P.phase === "gap") return
+    // character swap) still sees the portal before its exit is sized. Going
+    // up to the bar ends here.
+    if (P.phase === "gap") {
+      if (P.away) { w.portal = null; enter(w, "away", 9999) }
+      return
+    }
   }
   var u = clamp(P.pt / times[P.phase], 0, 1)
   var e = 1 - Math.pow(1 - u, 2)
   if (P.phase === "enter") {
     if (P.kind === "side") { w.x = P.from.x + (P.entry.x - P.from.x) * e }
-    else {
+    else if (P.up) {
+      // Jumps up into a portal above it (on its way to the bar).
+      w.y = P.from.y + (P.entry.y - P.from.y) * u * u
+    } else {
       // Hop up a little, then dive into the floor portal.
       var lift = bodyH(w) * 0.5
       w.y = P.from.y - lift * Math.sin(Math.PI * Math.min(1, u * 1.6)) + (u > 0.6 ? (u - 0.6) / 0.4 * bodyH(w) * 1.05 : 0)
     }
   } else if (P.phase === "exit") {
     if (P.kind === "side") { w.x = P.exit.x + (P.dest.x - P.exit.x) * e; w.y = P.dest.y }
-    else if (P.dest.hang) {
-      // Drops down out of a portal on the window's top edge into a dangle.
+    else if (P.dest.hang || P.dest.drop) {
+      // Drops down out of a portal on a window's top edge (into a dangle) or
+      // under the bar (summoned).
       w.y = P.exit.y + (P.dest.y - P.exit.y) * e
       w.x = P.dest.x
     } else {
@@ -649,7 +785,7 @@ function dragEnd(w, now) {
 }
 
 function pet(w) {
-  if (w.st === "carried" || w.st === "portal") return
+  if (w.st === "carried" || w.st === "portal" || w.st === "away") return
   setEmote(w, "heart", 1.6)
   setExpr(w, "happy", 1.3)
   if (w.st === "idle" || w.st === "sit" || w.st === "land") setPose(w, "cheer", 0.45)
@@ -662,7 +798,7 @@ function hover(w, on) {
 
 // kind: "notification" | "urgent" | "open"; at: monitor-local point to glance at.
 function notify(w, kind, at) {
-  if (!w.placed || w.napping || w.st === "portal" || w.st === "carried") return
+  if (!w.placed || w.napping || w.st === "portal" || w.st === "carried" || w.st === "away") return
   if (at) setLook(w, lookToward(w, at.x, at.y), 1.6)
   setEmote(w, kind === "open" ? "sparkle" : "bang", kind === "open" ? 0.9 : 1.3)
   setExpr(w, "wide", 0.6)
@@ -670,10 +806,12 @@ function notify(w, kind, at) {
 }
 
 var REACTIONS = ["pet", "notify", "dizzy", "sleep", "wake", "cheer", "question", "battery", "charging", "flop",
-                 "yawn", "sad", "heart", "hang", "hop", "special", "done", "celebrate", "spin"]
+                 "yawn", "sad", "heart", "hang", "hop", "special", "done", "celebrate", "spin", "leap", "sparkle"]
 
 // Returns false for names it doesn't know.
 function react(w, name) {
+  // Up on the bar during focus: known reactions are quietly skipped.
+  if (w.st === "away") return REACTIONS.indexOf(name) >= 0
   switch (name) {
   case "pet": pet(w); break
   case "notify": notify(w, "notification", null); break
@@ -706,6 +844,19 @@ function react(w, name) {
     setEmote(w, "sparkle", 1.6)
     break
   case "spin": spin(w); break
+  case "leap":
+    // A big hop in place (a git push) that lands right where it started.
+    if (["idle", "sit", "walk", "land", "special"].indexOf(w.st) >= 0) {
+      var arc = w.M.hop(w.x, w.y, w.x, w.y, w.k, 70)
+      enter(w, "hop", arc.dur, { arc: arc, ledge: w.support, inPlace: true, facing: w.facing })
+      w.support = null
+      setExpr(w, "happy", 1)
+    } else {
+      setPose(w, "cheer", 1)
+    }
+    setEmote(w, "bolt", 1.4)
+    break
+  case "sparkle": setEmote(w, "sparkle", 1.2); break
   default: return false
   }
   return true
@@ -785,6 +936,7 @@ function tick(w, dt) {
     break
   case "skid": skidTick(w, d); break
   case "portal": portalTick(w, d); break
+  case "away": break
   case "special":
     if (w.t >= w.dur) {
       if (w.stretchAnim) enter(w, "stretch", 9999)
@@ -848,6 +1000,7 @@ function hopTick(w) {
     w.x = p.arc.x1
     w.y = p.arc.y1
     if (p.facing) w.facing = p.facing
+    if (p.inPlace) { w.support = p.ledge; land(w, false); return }
     if (p.hang && p.ledge) { w.support = p.ledge; enter(w, "hang", 15 + w.rng() * 30); return }
     w.support = p.ledge && p.ledge.kind !== "hang" ? p.ledge : w.P.supportAt(w.env.ledges, w.x, w.y, halfW(w), 3)
     if (!w.support) { w.vx = 0; w.vy = 0; enter(w, "fall", 99); return }
@@ -910,6 +1063,7 @@ function advanceFrames(w, d) {
 
 // Seconds until the next tick could change anything (or fast while moving).
 function schedule(w) {
+  if (w.st === "away") return { fast: false, wait: 5 }
   if (w.st === "hop" || w.st === "fall" || w.st === "thrown" || w.st === "glide" || w.st === "skid") return { fast: true, wait: 0 }
   if (w.st === "portal") return { fast: false, wait: 1 / PORTAL_FPS }
   var waits = []
@@ -1007,7 +1161,7 @@ function render(w) {
   var prop = w.st === "sit" ? w.prop : null
   var facing = w.facing
   var portals = []
-  var visible = w.placed && !w.hidden
+  var visible = w.placed && !w.hidden && w.st !== "away"
 
   if (w.st === "sleep") expr = "closed"
   else if (w.st === "fall" || w.st === "thrown") expr = "wide"
@@ -1064,7 +1218,7 @@ function render(w) {
           ops.clip = { side: keepLeft ? "right" : "left", at: at }
         } else {
           var lineY = P.phase === "enter" ? P.entry.y : P.exit.y
-          var fromAbove = P.phase === "exit" && P.dest.hang
+          var fromAbove = P.phase === "enter" ? !!P.up : !!(P.dest.hang || P.dest.drop)
           ops.clip = { side: fromAbove ? "top" : "bottom", at: Math.round((lineY - cellTop) / w.k) }
         }
       }
@@ -1111,6 +1265,7 @@ if (typeof module !== "undefined") module.exports = {
   create: create, setMetrics: setMetrics, place: place, setEnv: setEnv, setMode: setMode,
   setMood: setMood, setFlags: setFlags, focusChanged: focusChanged, workspaceSwitch: workspaceSwitch,
   special: special, spin: spin, requestSwap: requestSwap, clearSwap: clearSwap, REACTIONS: REACTIONS, monitorSwitch: monitorSwitch,
+  summon: summon, goAway: goAway, comeBack: comeBack,
   portalOnNewScreen: portalOnNewScreen, dragStart: dragStart, dragMove: dragMove, dragEnd: dragEnd,
   pet: pet, hover: hover, notify: notify, react: react, userIdle: userIdle, setCursor: setCursor,
   setHidden: setHidden, setStretch: setStretch, goTo: goTo, tick: tick, render: render,
