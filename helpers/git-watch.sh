@@ -209,8 +209,8 @@ read_new() {
   local file=$1 kind size off chunk complete line
   relevant "$file" || return 0
   case $file in
-    */logs/refs/remotes/*) kind=remote ;;
-    *) kind=head ;;
+    */logs/refs/remotes/*) kind="remote" ;;
+    *) kind="head" ;;
   esac
   size=$(stat -c %s -- "$file" 2>/dev/null) || return 0
   off=${OFF[$file]:-0}

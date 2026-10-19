@@ -180,7 +180,7 @@ fi
 # A shell restart doesn't signal its children: when the process that started
 # the watcher dies, the watcher must notice and exit by itself.
 orphan_check() {   # label watcher-args...
-  local label=$1 parent wpid i
+  local label=$1 parent wpid
   shift
   bash -c 'bash "$0" "$@" >/dev/null 2>&1 & echo "$!" >"$OUT_PID"; wait' "$WATCH" "$@" &
   parent=$!
@@ -191,7 +191,7 @@ orphan_check() {   # label watcher-args...
   if ! kill -0 "$wpid" 2>/dev/null; then bad "$label: exits when its parent dies" "the watcher never started"; return; fi
   kill -9 "$parent" 2>/dev/null
   wait "$parent" 2>/dev/null
-  for i in {1..100}; do kill -0 "$wpid" 2>/dev/null || break; sleep 0.1; done
+  for _ in {1..100}; do kill -0 "$wpid" 2>/dev/null || break; sleep 0.1; done
   if kill -0 "$wpid" 2>/dev/null; then
     bad "$label: exits when its parent dies" "still running after 10 s"
     kill "$wpid" 2>/dev/null
