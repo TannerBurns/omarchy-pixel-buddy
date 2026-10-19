@@ -275,6 +275,19 @@ var EMOTES = {
       ".k..."
     ]
   },
+  note: {
+    colors: { k: INK, n: "#a9d6ff", w: "#ffffff" },
+    rows: [
+      "..kkk.",
+      "..knnk",
+      "..knkk",
+      "..knk.",
+      ".kknk.",
+      "kwnnk.",
+      "knnnk.",
+      ".kkk.."
+    ]
+  },
   bulb: {
     colors: { k: INK, y: "#ffe680", w: "#ffffff", g: "#9aa5b1" },
     rows: [

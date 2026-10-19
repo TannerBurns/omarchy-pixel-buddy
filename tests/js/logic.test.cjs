@@ -211,3 +211,40 @@ test("wellbeing: bedtime nights and one nudge per night", () => {
   s.lastBedtimeNudge = "2026-10-18"
   assert.equal(W.bedtimeNudgeDue(s, new Date(2026, 9, 19, 1, 0), "23:00", "2026-10-18"), false)
 })
+
+test("power: battery saver follows the setting and the battery", () => {
+  const Power = js("Power")
+  assert.equal(Power.isSaver("auto", true), true)
+  assert.equal(Power.isSaver("auto", false), false)
+  assert.equal(Power.isSaver("on", false), true)
+  assert.equal(Power.isSaver("off", true), false)
+  const s = Power.policy(true), n = Power.policy(false)
+  assert.equal(s.saver, true)
+  assert.equal(n.saver, false)
+  assert.ok(s.walkFps <= 5 && s.idleFps < 1 && s.wanderScale < 1 && !s.hangs && !s.specials)
+  assert.ok(s.cursorMs[0] > n.cursorMs[0] && s.geometryMs[1] > n.geometryMs[1])
+  assert.ok(s.fastHz > 0 && n.fastHz === 0)
+})
+
+test("settings: the bar entry wins over plugins[] once the buddy has a bar widget", () => {
+  const S = js("Settings")
+  const id = "tannerburns.pixel-buddy"
+  const plug = { id, character: "cat", size: "large" }
+  const bar = { id, character: "frog" }
+  assert.deepEqual(S.findEntry({ plugins: [plug] }, id), { entry: plug, home: "plugins" })
+  assert.deepEqual(S.findEntry({ bar: { layout: { right: [{ id: "omarchy.clock" }, bar] } } }, id), { entry: bar, home: "bar" })
+  const both = S.findEntry({ plugins: [plug], bar: { layout: { left: [], center: [bar] } } }, id)
+  assert.deepEqual(both, { entry: { id, character: "frog", size: "large" }, home: "bar" })
+  assert.deepEqual(S.findEntry({}, id), { entry: {}, home: "" })
+  assert.deepEqual(S.findEntry(null, id), { entry: {}, home: "" })
+  assert.deepEqual(S.findEntry({ bar: { layout: "nonsense" }, plugins: "nope" }, id), { entry: {}, home: "" })
+})
+
+test("settings: batterySaver parses like every other enum", () => {
+  const S = js("Settings")
+  assert.equal(S.coerce({}).batterySaver, "auto")
+  assert.equal(S.coerce({ batterySaver: "ON" }).batterySaver, "on")
+  assert.equal(S.coerce({ batterySaver: "sometimes" }).batterySaver, "auto")
+  assert.deepEqual(S.parseValue("batterySaver", "off"), { ok: true, value: "off" })
+  assert.equal(S.parseValue("batterySaver", "maybe").ok, false)
+})

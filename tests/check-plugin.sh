@@ -58,7 +58,7 @@ grep -n 'path: root.stateDir' "$DIR/Service.qml" >/dev/null || bad "Service.qml 
 # ---- shell scripts parse
 while IFS= read -r f; do
   bash -n "$f" || bad "${f#"$DIR"/} has a bash syntax error"
-done < <(find "$DIR/tests" "$DIR/scripts" -name '*.sh' -type f 2>/dev/null)
+done < <(find "$DIR/tests" "$DIR/scripts" "$DIR/hooks" -name '*.sh' -type f 2>/dev/null)
 
 if (( problems )); then exit 1; fi
 echo "  plugin checks passed"

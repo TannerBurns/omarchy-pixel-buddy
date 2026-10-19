@@ -25,8 +25,10 @@ const warnings = []
 const err = (f, m) => errors.push(`${basename(f)}: ${m}`)
 const warn = (f, m) => warnings.push(`${basename(f)}: ${m}`)
 
-const EYE_POSES = ["idle", "walk", "sit", "cheer", "stretch", "carried", "jump"]
+const EYE_POSES = ["idle", "walk", "sit", "cheer", "stretch", "carried", "jump", "special"]
 const LOOKS = [-1, 0, 1]
+// A signature move always looks straight ahead, so only that gaze must fit.
+const STRAIGHT_ONLY = ["special"]
 
 function checkSockets(file, ch) {
   const style = ch.eyes.style
@@ -39,7 +41,7 @@ function checkSockets(file, ch) {
       if (!eyes) return
       for (const expression of Glyphs.EXPRESSIONS) {
         const g = Glyphs.eyeGlyph(style, expression)
-        const looks = g.look ? LOOKS : [0]
+        const looks = g.look && !STRAIGHT_ONLY.includes(pose) ? LOOKS : [0]
         const gw = Math.max(...g.rows.map(r => r.length))
         for (const lx of looks) for (const ly of looks) {
           eyes.forEach((a, ei) => {
@@ -77,6 +79,17 @@ function checkSockets(file, ch) {
   }
 }
 
+// Pose emotes must name a glyph this version draws (custom files only warn:
+// an unknown emote is skipped at runtime).
+function checkEmotes(file, ch, builtin) {
+  for (const [name, p] of Object.entries(ch.poses)) {
+    if (p.from !== name || !p.emote || Glyphs.EMOTES[p.emote]) continue
+    const msg = `${name}: unknown emote '${p.emote}' (known: ${Object.keys(Glyphs.EMOTES).join(", ")})`
+    if (builtin) err(file, msg)
+    else warn(file, msg)
+  }
+}
+
 function checkFeet(file, ch) {
   if (ch.floats) return
   for (const pose of ["idle", "walk", "sit"]) {
@@ -111,6 +124,7 @@ function lint(file, builtin) {
   if (builtin && basename(file) !== ch.id + ".json") err(file, `file name must be ${ch.id}.json`)
   checkFeet(file, ch)
   checkSockets(file, ch)
+  checkEmotes(file, ch, builtin)
   checkStyle(file, ch)
   return ch
 }

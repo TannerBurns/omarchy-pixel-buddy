@@ -117,6 +117,22 @@ Coordinates count from the top-left of the frame, starting at 0.
 
 A pose with a single idle frame still breathes: the plugin squashes it by a pixel every other beat.
 
+### Signature moves
+
+`special` plays when you double-click the buddy, after a finished stretch, and now and then on its own. Written in the `{ "fps": n, "frames": [...] }` form, any pose can also carry:
+
+| Field | Range | Meaning |
+| --- | --- | --- |
+| `travel` | -4 to 4 | Art pixels to move per frame, in the direction it faces. It stops at the end of whatever it stands on. `travel` x `fps` must stay within 40. |
+| `duration` | 0.3 to 4 | Seconds the move lasts, looping its frames. The default is two passes through the frames, between 0.6 and 3 seconds. |
+| `emote` | an emote id | Shown above the head for the whole move: `bang`, `question`, `dots`, `heart`, `zzz`, `sparkle`, `drop`, `bolt`, `note`, `bulb`, `spiral`, `stretch` or `battery`. Unknown ids are skipped. |
+
+```json
+"special": { "fps": 6, "travel": 1, "duration": 1.5, "emote": "sparkle", "frames": [{ "base": "idle/0", "shift": [0, -1] }, { "base": "idle/0" }] }
+```
+
+During its signature move the buddy looks straight ahead, so `special` frames only need room for the eyes at that one gaze. A character without `special` cheers instead.
+
 ### Frames
 
 A frame is either full rows:

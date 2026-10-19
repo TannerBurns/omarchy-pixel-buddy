@@ -109,6 +109,55 @@
           "anchors": { "eyes": [[5, 6], [9, 6]], "mouth": [6, 9], "hand": [7, 15], "head": [7, 1] }
         }
       ]
+    },
+    "special": {
+      "fps": 6,
+      "duration": 1.2,
+      "emote": "sparkle",
+      "frames": [
+        {
+          "rows": [
+            ".......##.......",
+            "......#hy#......",
+            "......#hy#......",
+            ".....#hyyy#.....",
+            "..####hyyy####..",
+            "..#hyyyyyyyys#..",
+            "...#yyyyyyys#...",
+            "...#yyyyyyyy#...",
+            "...#pyyyyyyp#...",
+            "....#yyyyyy#....",
+            "....#yyyyyy#....",
+            "...#yyyyyyyy#...",
+            "...#yyy##yys#...",
+            "..#yys#..#sys#..",
+            "..#ys#....#ss#..",
+            "..###......###.."
+          ],
+          "anchors": { "eyes": [[5, 6], [9, 6]], "mouth": [6, 9], "hand": [7, 15], "head": [7, 1] }
+        },
+        {
+          "rows": [
+            ".h..............",
+            "h.h....##.......",
+            ".h....#hy#......",
+            ".....#hyyy#.....",
+            "#####hyyyyy#####",
+            "#hyyyyyyyyyyyys#",
+            ".#yyyyyyyyyyys#.",
+            "..#yyyyyyyyyy#..",
+            "..#pyyyyyyyyp#..",
+            "...#yyyyyyyy#...",
+            "...#yyyyyyyy#...",
+            "..#yyyyyyyyyy#..",
+            "..#yyyy##yyys#h.",
+            ".#yyys#..#syys..",
+            ".#yys#....#sys..",
+            ".####......####."
+          ],
+          "anchors": { "eyes": [[5, 6], [9, 6]], "mouth": [6, 9], "hand": [7, 15], "head": [7, 1] }
+        }
+      ]
     }
   }
 }

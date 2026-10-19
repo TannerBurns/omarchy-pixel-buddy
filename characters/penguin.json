@@ -186,6 +186,8 @@
     },
     "special": {
       "fps": 4,
+      "travel": 2,
+      "duration": 1.5,
       "frames": [
         {
           "rows": [

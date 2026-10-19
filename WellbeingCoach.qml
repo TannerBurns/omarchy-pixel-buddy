@@ -199,7 +199,7 @@ Item {
       Wellbeing.finish(coach.session, now, coach.stretch, outcome, Roster.dayKey(new Date(now)))
       if (coach.controller) {
         coach.controller.setStretch(null)
-        if (outcome === "done") coach.controller.react("heart")
+        if (outcome === "done") coach.controller.react("done")
       }
     }
     coach.active = false

@@ -255,6 +255,54 @@
           "anchors": { "eyes": [[4, 8], [10, 8]], "mouth": [6, 11], "hand": [7, 14], "head": [7, 5] }
         }
       ]
+    },
+    "special": {
+      "fps": 3,
+      "duration": 2,
+      "frames": [
+        {
+          "rows": [
+            "................",
+            "..#..........#..",
+            "..##........##..",
+            "..#p#......#p#..",
+            "..#pp######pp#..",
+            ".#hhootootoooo#.",
+            ".#hoooottoooos#.",
+            ".#ooooooooooos#.",
+            ".#ooooooooooos#.",
+            "#..oooccccooop#.",
+            "#o.ooccccccoo#..",
+            "#o.#oooooooo#...",
+            "#o###oooooo##...",
+            "#o##ooooooos#...",
+            ".###oo#cc#os#...",
+            "...####..####..."
+          ],
+          "anchors": { "eyes": [[4, 7], [10, 7]], "mouth": [6, 10], "hand": [7, 15], "head": [7, 4] }
+        },
+        {
+          "rows": [
+            "................",
+            "................",
+            "................",
+            "..#..........#..",
+            "..##........##..",
+            "..#p#......#p#..",
+            "..#pp######pp#..",
+            ".#hhootootoooo#.",
+            ".#hoooottoooos#.",
+            ".#ooooooooooos#.",
+            "#..oooccccooop#.",
+            "#o.ooccccccoo#..",
+            "#o###oooooo##...",
+            "#o##ooooooos#...",
+            ".###oo#cc#os#...",
+            "...####..####..."
+          ],
+          "anchors": { "eyes": [[4, 9], [10, 9]], "mouth": [6, 11], "hand": [7, 15], "head": [7, 6] }
+        }
+      ]
     }
   }
 }

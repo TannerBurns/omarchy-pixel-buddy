@@ -14,9 +14,13 @@ import "js/CharacterSchema.js" as Schema
 Item {
   id: ctl
 
-  property var character: null       // normalized character
-  property var colors: ({})          // palette char -> hex
+  // What is drawn: a character and its resolved palette, always together (the
+  // palette keys differ per character, so they must swap at the same moment).
+  property var skin: null            // { character, colors }
+  readonly property var character: ctl.skin ? ctl.skin.character : null
+  readonly property var colors: ctl.skin ? ctl.skin.colors : ({})
   property var portalColors: Portal.DEFAULT_COLORS
+  property var policy: null          // battery-saver policy (js/Power.js)
   property int px: 3
   property string mode: "hopper"
   property bool calm: false
@@ -46,8 +50,10 @@ Item {
     var hang = Sprite.frameBox(ch, "hang", 0)
     var fps = {}, frames = {}
     for (var p in ch.poses) { fps[p] = ch.poses[p].fps; frames[p] = ch.poses[p].frames.length }
+    var sp = ch.poses.special || {}
     return { k: k, w: ch.w, h: ch.h, body: body, hangTop: hang.y0, motion: ch.motion, floats: ch.floats,
-             flies: ch.flies, speed: ch.speed, fps: fps, frames: frames }
+             flies: ch.flies, speed: ch.speed, fps: fps, frames: frames,
+             special: { travel: sp.travel || 0, emote: sp.emote || null, duration: sp.duration || null } }
   }
 
   // Logical size of the body (for ledges/perches).
@@ -58,6 +64,7 @@ Item {
   function ensureWorld() {
     if (ctl.world || !ctl.metrics) return
     ctl.world = World.create({ motion: Motion, platforms: Platforms, metrics: ctl.metrics, mode: ctl.mode, calm: ctl.calm, warp: ctl.warp })
+    World.setFlags(ctl.world, { saver: !!(ctl.policy && ctl.policy.saver), policy: ctl.policy })
   }
 
   onMetricsChanged: {
@@ -71,6 +78,7 @@ Item {
   onCalmChanged: if (ctl.world) { World.setFlags(ctl.world, { calm: ctl.calm }); kick() }
   onWarpChanged: if (ctl.world) World.setFlags(ctl.world, { warp: ctl.warp })
   onColorsChanged: { ctl.composeKey = ""; publish() }
+  onPolicyChanged: if (ctl.world) { World.setFlags(ctl.world, { saver: !!(ctl.policy && ctl.policy.saver), policy: ctl.policy }); kick() }
   onActiveChanged: {
     if (ctl.active) { ctl.lastMs = Date.now(); kick() }
     else { tickTimer.stop(); frames.running = false }
@@ -107,8 +115,16 @@ Item {
     publish()
     if (!ctl.active) { frames.running = false; return }
     if (r.fast) {
-      tickTimer.stop()
-      frames.running = true
+      var hz = ctl.policy && ctl.policy.fastHz ? ctl.policy.fastHz : 0
+      if (hz > 0) {
+        // Battery saver: smooth moves at a capped rate instead of every display frame.
+        frames.running = false
+        tickTimer.interval = Math.round(1000 / hz)
+        tickTimer.restart()
+      } else {
+        tickTimer.stop()
+        frames.running = true
+      }
     } else {
       frames.running = false
       tickTimer.interval = Math.max(30, Math.round(r.wait * 1000))
@@ -209,6 +225,16 @@ Item {
   function userIdle(idle) { if (ctl.world) { World.userIdle(ctl.world, idle); kick() } }
   function setHidden(h) { if (ctl.world) { World.setHidden(ctl.world, h); publish() } }
   function setStretch(anim) { if (ctl.world) { World.setStretch(ctl.world, anim); kick() } }
+  function special() { if (ctl.world) { World.special(ctl.world); kick() } }
+  function requestSwap() { if (ctl.world) { World.requestSwap(ctl.world); kick() } }
+  function clearSwap() { if (ctl.world) World.clearSwap(ctl.world) }
+  // Returns false for an unknown reaction name.
+  function reactChecked(name) {
+    if (!ctl.world) return false
+    var known = World.react(ctl.world, name)
+    kick()
+    return known
+  }
 
   function setCursor(x, y) {
     if (!ctl.world) return

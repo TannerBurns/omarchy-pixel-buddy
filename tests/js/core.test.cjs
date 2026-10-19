@@ -179,3 +179,52 @@ test("docs: the README settings table covers every setting", () => {
   const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8")
   for (const key of Settings.KEYS) assert.ok(readme.includes("| `" + key + "` |"), "README documents " + key)
 })
+
+test("schema: optional pose fields (travel, duration, emote) validate and follow the frames", () => {
+  const rows = []
+  for (let i = 0; i < 8; i++) rows.push(i === 7 ? "########" : i >= 3 ? "#oooooo#" : "........")
+  const base = {
+    format: "pixel-buddy-character", version: 1, id: "mover", name: "Mover", size: [8, 8],
+    palette: { "#": "#000000", o: "#ff0000" }, eyes: { style: "none" }
+  }
+  const good = Schema.validate({ ...base, poses: { idle: [{ rows }], cheer: { fps: 6, travel: 1, duration: 2, emote: "sparkle", frames: [{ rows }] } } })
+  assert.ok(good.ok, good.errors.join("; "))
+  const c = good.character
+  assert.deepEqual([c.poses.cheer.travel, c.poses.cheer.duration, c.poses.cheer.emote], [1, 2, "sparkle"])
+  // special falls back to cheer and takes cheer's fields with its frames.
+  assert.equal(c.poses.special.from, "cheer")
+  assert.equal(c.poses.special.travel, 1)
+  assert.equal(c.poses.idle.travel, 0)
+  assert.equal(c.poses.idle.emote, null)
+  const bad = (pose, msg) => {
+    const r = Schema.validate({ ...base, poses: { idle: [{ rows }], special: Object.assign({ frames: [{ rows }] }, pose) } })
+    assert.equal(r.ok, false, JSON.stringify(pose))
+    assert.ok(r.errors.some(e => e.includes(msg)), r.errors.join("; "))
+  }
+  bad({ travel: 5 }, "travel")
+  bad({ fps: 12, travel: 4 }, "40 art pixels")
+  bad({ duration: 9 }, "duration")
+  bad({ emote: "Sparkle!" }, "emote")
+})
+
+test("schema: every built-in has its own signature move with a known emote", () => {
+  for (const f of characterFiles()) {
+    const ch = loadCharacter(f)
+    assert.equal(ch.poses.special.from, "special", ch.id + " has a special pose")
+    if (ch.poses.special.emote) assert.ok(Glyphs.EMOTES[ch.poses.special.emote], ch.id + " emote " + ch.poses.special.emote)
+  }
+})
+
+test("docs: the README lists every IPC function and reaction", () => {
+  const fs = require("node:fs")
+  const path = require("node:path")
+  const { ROOT } = require("./helpers.cjs")
+  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8")
+  const service = fs.readFileSync(path.join(ROOT, "Service.qml"), "utf8")
+  const ipc = service.slice(service.indexOf("IpcHandler"))
+  const fns = [...ipc.matchAll(/^\s{4}function (\w+)\(/gm)].map(m => m[1])
+  assert.ok(fns.length >= 10, "found the IPC functions (" + fns.join(", ") + ")")
+  for (const fn of fns) assert.ok(readme.includes("pixel-buddy " + fn), "README documents IPC " + fn)
+  const World = js("World")
+  for (const name of World.REACTIONS) assert.ok(readme.includes("`" + name + "`"), "README lists reaction " + name)
+})

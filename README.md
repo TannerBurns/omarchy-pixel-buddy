@@ -17,9 +17,12 @@ omarchy plugin add https://github.com/TannerBurns/omarchy-pixel-buddy --enable -
 - **Window hopper.** It walks along the bottom of the screen, hops onto floating windows you focus and rides along when they move, dangles from a window edge now and then, and falls when the window under it closes. It never sits on your bar. Patrol, Roam and Stay modes keep it calmer.
 - **It watches what you do.** Its eyes follow your cursor. It sits with a laptop while you code or work with an AI agent, reads while you browse, glances at new windows and notifications, and naps when you step away.
 - **Drag it anywhere.** Pick it up, fling it, drop it. Where you drop it on or under a window becomes its spot for that app.
+- **Signature moves.** Double-click it and each character does its own thing: the puppy wags, the frog flicks its tongue, the dragon puffs fire, the penguin belly-slides. Now and then it shows off on its own.
+- **Character handoffs.** Pick a new character (or let the daily surprise change) and the old one walks into a portal while the new one steps out of another.
+- **It notices your system.** It spins when you change your Omarchy theme (theme-tinted buddies recolor mid-spin) and can celebrate a finished `omarchy update` (see [Update celebration](#update-celebration)).
 - **Stretch reminders that change every time.** After a long stretch of work it waits for a natural pause, then walks you through one of 22 stretches across eight categories and acts each one out. After long coding sessions it favors wrists, eyes and neck; it never picks the same category twice in a row. It stays quiet during fullscreen apps, Do Not Disturb and screen sharing.
 - **Bring your own character.** Drop a JSON file of pixel rows into `~/.config/pixel-buddy/characters/` and it appears in the menu. Edits show up live.
-- **Light on resources.** It only draws when something changes: about 1% of one CPU core while it wanders, far less while it sits still.
+- **Light on resources.** It only draws when something changes: about 1% of one CPU core while it wanders, far less while it sits still. On battery it switches to a [battery saver](#battery-saver) that draws and polls even less.
 
 ## Screenshots
 
@@ -58,7 +61,7 @@ omarchy plugin remove tannerburns.pixel-buddy
 rm -rf ~/.local/state/pixel-buddy ~/.config/pixel-buddy   # optional: saved spots, stretch history, custom characters
 ```
 
-Remove the keyboard shortcut too if you added it.
+Remove the keyboard shortcut too if you added it, and the update hook if you installed it (`rm ~/.config/omarchy/hooks/post-update.d/pixel-buddy.sh`).
 
 ## Usage
 
@@ -66,19 +69,55 @@ Remove the keyboard shortcut too if you added it.
 | --- | --- |
 | Drag | Pick it up and move it. Fling it to throw it. |
 | Click | Pet it. |
+| Double-click | Its signature move. |
 | Right-click | Menu: character, surprise me daily, mode, size, colors, motion, stretch now, snooze reminders, hide. |
 | Super+Alt+B | Show or hide it (with the shortcut above). |
 
 Everything is also scriptable:
 
 ```bash
-omarchy-shell pixel-buddy toggle                 # also: show, hide
-omarchy-shell pixel-buddy character frog         # or: daily
+omarchy-shell pixel-buddy toggle                 # show or hide
+omarchy-shell pixel-buddy show
+omarchy-shell pixel-buddy hide
+omarchy-shell pixel-buddy character frog         # or: daily (plays the portal handoff)
 omarchy-shell pixel-buddy mode stay              # hopper, patrol, roam, stay
 omarchy-shell pixel-buddy set breakMinutes 30    # any setting below
 omarchy-shell pixel-buddy stretch                # a stretch break right now
-omarchy-shell pixel-buddy status | jq
+omarchy-shell pixel-buddy answer done            # answer an open stretch bubble: done, later, skip
+omarchy-shell pixel-buddy react celebrate        # a reaction, see below
+omarchy-shell pixel-buddy warp left              # play a workspace portal: left, right or down
+omarchy-shell pixel-buddy menu                   # open the menu next to the buddy
+omarchy-shell pixel-buddy reloadCharacters       # rescan custom characters
+omarchy-shell pixel-buddy reset                  # forget the spots it learned for your apps
+omarchy-shell pixel-buddy status | jq            # character, mode, battery saver, next stretch
+omarchy-shell pixel-buddy debug | jq             # monitors, ledges and perches (window classes only)
 ```
+
+### Reactions
+
+`omarchy-shell pixel-buddy react <name>` plays one of these, and answers `unknown` for anything else. They're handy in your own scripts and Omarchy hooks.
+
+| Name | Reaction |
+| --- | --- |
+| `pet` | A heart and a happy hop, like a click. |
+| `special` | Its signature move. |
+| `celebrate` | Its signature move with sparkles. |
+| `done` | Its signature move with a heart (after a finished stretch). |
+| `cheer` | Arms up, with a sparkle. |
+| `spin` | A quick spin (it does this when the theme changes). |
+| `heart` | Heart eyes. |
+| `notify` | Looks up as if a notification arrived. |
+| `question` | A question mark. |
+| `dizzy` | Spinning eyes. |
+| `sad` | A sad face. |
+| `yawn` | A yawn. |
+| `sleep` | A short nap. |
+| `wake` | Wakes up with a start. |
+| `flop` | Flops over, tired. |
+| `battery` | A tired face with a low battery. |
+| `charging` | A lightning bolt. |
+| `hang` | Climbs up and dangles from the focused window. |
+| `hop` | Hops back to its spot. |
 
 ## Movement modes
 
@@ -102,6 +141,7 @@ Settings live in the plugin's entry in `~/.config/omarchy/shell.json`. The right
 | `overFullscreen` | `false` | `true` keeps it above fullscreen apps and the screensaver. |
 | `followCursor` | `true` | Eyes follow the pointer. |
 | `screencast` | `calm` | While your screen is shared: `calm` (no portals or reminders), `hide` or `normal`. |
+| `batterySaver` | `auto` | `auto` (on battery), `on` or `off`. See [Battery saver](#battery-saver). |
 | `wellbeing` | `true` | Stretch and bedtime reminders. |
 | `breakMinutes` | `45` | Active minutes between stretch breaks (1-480). |
 | `stretches` | `all` | Categories to use, e.g. `wrists,eyes,neck`. |
@@ -132,9 +172,23 @@ It doesn't repeat a stretch until it has used every one in the categories you al
 
 After `bedtime` it wears a nightcap, yawns more, and once a night suggests wrapping up. The menu's **Snooze reminders 1h** pauses stretch reminders for an hour.
 
+## Battery saver
+
+Each frame the buddy draws costs a little CPU, so on battery it does less: fewer, slower animation frames, less wandering, no dangling or showing off on its own, and slower checks of the pointer and your windows. Workspace portals and stretch reminders work as usual. `batterySaver` set to `on` keeps it that way on power too, and `off` turns it off. `status` reports `"saver": true` while it's active.
+
+## Update celebration
+
+The buddy can cheer when `omarchy update` finishes. Install the hook it ships with once:
+
+```bash
+omarchy hook install post-update ~/.config/omarchy/plugins/tannerburns.pixel-buddy/hooks/pixel-buddy.sh
+```
+
+The hook calls `omarchy-shell -q pixel-buddy react celebrate` and never fails an update, even when the buddy isn't running. Remove it with `rm ~/.config/omarchy/hooks/post-update.d/pixel-buddy.sh`.
+
 ## Custom characters
 
-Put a character file in `~/.config/pixel-buddy/characters/` and pick it from the menu. Only an `idle` pose is required. Every other pose falls back to one you drew, and the eyes, expressions, props and portal come from the plugin. See [docs/characters.md](docs/characters.md) for the format and a complete small example. The built-in characters in [characters/](characters) are full examples too.
+Put a character file in `~/.config/pixel-buddy/characters/` and pick it from the menu. Only an `idle` pose is required. Every other pose falls back to one you drew, and the eyes, expressions, props and portal come from the plugin. Draw a `special` pose to give it a signature move. See [docs/characters.md](docs/characters.md) for the format and a complete small example. The built-in characters in [characters/](characters) are full examples too.
 
 ## Privacy
 

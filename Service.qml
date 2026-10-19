@@ -9,6 +9,7 @@ import "js/Roster.js" as Roster
 import "js/Portal.js" as Portal
 import "js/Activity.js" as Activity
 import "js/Wellbeing.js" as Wellbeing
+import "js/Power.js" as Power
 
 // Pixel Buddy: a pixel-art desktop buddy for the Omarchy shell.
 //
@@ -25,7 +26,7 @@ Item {
   property var shell: null
   property var manifest: null
 
-  readonly property string version: "0.1.0"
+  readonly property string version: "0.2.0"
   readonly property string pluginId: "tannerburns.pixel-buddy"
   readonly property string home: Quickshell.env("HOME")
   property string settingsPath: root.home + "/.config/omarchy/shell.json"
@@ -48,15 +49,16 @@ Item {
     onLoaded: root.readEntry(text())
   }
 
+  // "bar" or "plugins": where Omarchy keeps this plugin's entry. A bar entry
+  // (once the plugin has a bar widget) wins, the way the shell writes it.
+  property string entryHome: ""
+
   function readEntry(text) {
     if (root.pendingEntry) return
     try {
-      var cfg = JSON.parse(text)
-      var list = Array.isArray(cfg.plugins) ? cfg.plugins : []
-      for (var i = 0; i < list.length; i++) {
-        if (list[i] && list[i].id === root.pluginId) { root.rawEntry = list[i]; return }
-      }
-      root.rawEntry = ({})
+      var found = SettingsJs.findEntry(JSON.parse(text), root.pluginId)
+      root.entryHome = found.home
+      root.rawEntry = found.entry
     } catch (e) {
       // Mid-write or hand-edited into invalid JSON: keep the last good settings.
     }
@@ -115,7 +117,7 @@ Item {
     root.hidden = s.hidden === true
     coach.restore(s.wellbeing)
     root.stateLoaded = true
-    root.pickDaily(true)
+    root.pickDaily()
     root.tryPlace()
   }
 
@@ -151,7 +153,6 @@ Item {
   readonly property var themeColors: ({ accent: root.hex(Color.accent), foreground: root.hex(Color.foreground), background: root.hex(Color.background) })
 
   property string dailyId: ""
-  property string pendingDailyId: ""
 
   readonly property string characterId: {
     var want = root.settings.character
@@ -161,11 +162,42 @@ Item {
     return ids.length > 0 && characters.byId[ids[0]] ? ids[0] : ""
   }
   readonly property var character: root.characterId ? characters.byId[root.characterId] || null : null
-  readonly property var colors: root.character ? Schema.resolveColors(root.character, root.settings.colors, root.themeColors) : ({})
 
-  // Picks today's surprise. At startup it applies at once; when the day turns
-  // mid-session it waits for the next portal or nap so nobody sees the swap.
-  function pickDaily(immediate) {
+  // What is on screen. It follows characterId through a portal handoff: the
+  // old character walks into a portal and the new one steps out (requestSwap,
+  // applied on the world's "gap" event). Keyed on the id, so saving a custom
+  // character file still updates its art live.
+  property string shownId: ""
+  readonly property var shownCharacter: (root.shownId && characters.byId[root.shownId]) || root.character
+  readonly property var skin: root.shownCharacter
+    ? ({ character: root.shownCharacter, colors: Schema.resolveColors(root.shownCharacter, root.settings.colors, root.themeColors) })
+    : null
+  property real placedAt: 0
+
+  onCharacterIdChanged: root.requestSwap()
+
+  function requestSwap() {
+    var want = root.characterId
+    if (!want || want === root.shownId) { controller.clearSwap(); swapDeadline.stop(); return }
+    var animate = root.placed && Date.now() - root.placedAt > 3000 && controller.active && !root.hidden
+      && !senses.userIdle && root.settings.warp !== "none" && controller.worldState !== "carried"
+      && !!characters.byId[root.shownId]
+    if (!animate) { root.applySwap(); return }
+    controller.requestSwap()
+    swapDeadline.restart()
+  }
+
+  function applySwap() {
+    if (root.characterId && root.shownId !== root.characterId) root.shownId = root.characterId
+    controller.clearSwap()
+    swapDeadline.stop()
+  }
+
+  // Safety net: a swap that never found a calm moment happens in place.
+  Timer { id: swapDeadline; interval: 8000; onTriggered: root.applySwap() }
+
+  // Picks today's surprise; a change mid-session plays the portal handoff.
+  function pickDaily() {
     if (!root.stateLoaded || !characters.ready) return
     var ids = characters.ids.filter(function (id) { return !!characters.byId[id] })
     if (ids.length === 0) return
@@ -174,25 +206,20 @@ Item {
     var s = Object.assign({}, root.store)
     s.daily = { date: t.date, id: t.id }
     root.store = s
-    if (immediate || !root.dailyId) root.dailyId = t.id
-    else root.pendingDailyId = t.id
+    root.dailyId = t.id
     root.saveState()
-  }
-
-  function applyPendingDaily() {
-    if (root.pendingDailyId) { root.dailyId = root.pendingDailyId; root.pendingDailyId = "" }
   }
 
   Connections {
     target: characters
-    function onReadyChanged() { root.pickDaily(true); root.tryPlace() }
-    function onRevisionChanged() { if (characters.ready) root.pickDaily(false) }
+    function onReadyChanged() { root.pickDaily(); root.tryPlace() }
+    function onRevisionChanged() { if (characters.ready) root.pickDaily() }
   }
 
   SystemClock {
     precision: SystemClock.Minutes
     onDateChanged: {
-      root.pickDaily(false)
+      root.pickDaily()
       controller.setFlags({ night: Wellbeing.isNight(new Date(), root.settings.bedtime) })
     }
   }
@@ -232,6 +259,8 @@ Item {
   property bool animationsOn: true
   readonly property bool screencastHide: senses.screencast && root.settings.screencast === "hide"
   readonly property bool covered: senses.fullscreen && !root.settings.overFullscreen
+  readonly property bool saver: Power.isSaver(root.settings.batterySaver, senses.batteryPowered)
+  readonly property var policy: Power.policy(root.saver)
 
   Senses {
     id: senses
@@ -241,16 +270,17 @@ Item {
     followCursor: root.settings.followCursor
     awake: !root.hidden && !root.covered && !senses.userIdle
     napPending: coach.waitingForPause
+    policy: root.policy
 
     onEnvChanged: { controller.setEnv(senses.env); root.tryPlace() }
-    onWorkspaceSwitched: function (dir, kind) { root.applyPendingDaily(); controller.workspaceSwitch(dir, kind) }
+    onWorkspaceSwitched: function (dir, kind) { controller.workspaceSwitch(dir, kind) }
     onWindowFocused: controller.focusMoved()
     onFocusSettled: controller.focusMoved()
     onWindowOpened: function (at) { controller.notify("open", at) }
     onUrgentWindow: controller.notify("urgent", senses.env.mon ? { x: senses.env.mon.left + 120, y: senses.env.mon.top } : null)
     onNotificationArrived: controller.notify("notification", senses.env.mon ? { x: senses.env.mon.right - 120, y: senses.env.mon.top + 40 } : null)
     onCursorMoved: function (x, y) { controller.setCursor(x, y) }
-    onUserIdleChanged: { if (!senses.userIdle) root.applyPendingDaily(); controller.userIdle(senses.userIdle) }
+    onUserIdleChanged: controller.userIdle(senses.userIdle)
     onMoodChanged: controller.setMood(senses.mood, Activity.MOOD_PROP[senses.mood], Activity.MOOD_EMOTE[senses.mood])
     onBatteryEvent: function (kind) {
       if (!root.settings.battery) return
@@ -261,8 +291,8 @@ Item {
 
   Controller {
     id: controller
-    character: root.character
-    colors: root.colors
+    skin: root.skin
+    policy: root.policy
     portalColors: Portal.themeColors(root.themeColors.accent, Schema.hslToHex, function (h) { var c = Schema.hexToRgb(h); return Schema.rgbToHsl(c[0], c[1], c[2]) })
     px: root.settings.scale
     mode: root.settings.mode
@@ -279,22 +309,30 @@ Item {
     function onWorldChanged() { root.tryPlace() }
   }
 
+  // Waits for the characters so a pinned character doesn't appear as another
+  // and then swap at login (a pinned custom file gets 3 s to show up).
+  Timer { id: placeRetry; interval: 3100; onTriggered: root.tryPlace() }
+
   function tryPlace() {
-    if (root.placed || !root.stateLoaded || !root.character || !senses.env.mon || !controller.world) return
+    if (root.placed || !root.stateLoaded || !characters.ready || !root.skin || !senses.env.mon || !controller.world) return
+    var want = root.settings.character
+    if (want !== "daily" && !characters.byId[want] && Date.now() - root.startedAt < 3000) { placeRetry.restart(); return }
     var saved = root.store.positions ? root.store.positions[root.screenName] : null
     var pos = saved && saved.mode === root.settings.mode ? { x: saved.x, y: saved.y } : null
     controller.setEnv(senses.env)
     controller.setMood(senses.mood, Activity.MOOD_PROP[senses.mood], Activity.MOOD_EMOTE[senses.mood])
     controller.setFlags({ night: Wellbeing.isNight(new Date(), root.settings.bedtime), tired: senses.batteryLow && root.settings.battery })
+    root.shownId = root.characterId
     controller.place(pos)
     controller.setHidden(root.hidden || root.screencastHide)
     root.placed = true
+    root.placedAt = Date.now()
   }
 
   function worldEvent(ev) {
     switch (ev.type) {
     case "gap":
-      root.applyPendingDaily()
+      root.applySwap()
       break
     case "screen":
       root.screenName = ev.screen
@@ -327,6 +365,22 @@ Item {
     p[f.cls] = { kind: kind, fx: Math.round(fx * 1000) / 1000 }
     s.perches = p
     root.store = s
+  }
+
+  // Theme changes: a spin (theme-tinted buddies recolor mid-spin). Color's
+  // shellValues is reassigned exactly when the shell applies a theme; only a
+  // real color change counts, and never in the first seconds after startup.
+  property string themeKey: ""
+  Timer { id: themeDebounce; interval: 400; onTriggered: root.themeChanged() }
+  Connections {
+    target: Color
+    function onShellValuesChanged() { themeDebounce.restart() }
+  }
+  function themeChanged() {
+    var key = root.themeColors.accent + root.themeColors.foreground + root.themeColors.background
+    var changed = root.themeKey !== "" && key !== root.themeKey
+    root.themeKey = key
+    if (changed && Date.now() - root.startedAt > 10000) controller.react("spin")
   }
 
   onSettingsChanged: {
@@ -391,7 +445,8 @@ Item {
     var s = coach.session
     return {
       version: root.version, instanceId: root.instanceId, startedAt: root.startedAt,
-      character: root.characterId, name: root.character ? root.character.name : "",
+      character: root.characterId, shown: root.shownId, name: root.character ? root.character.name : "",
+      saver: root.saver, entryHome: root.entryHome,
       daily: root.settings.character === "daily", mode: root.settings.mode, hidden: root.hidden,
       state: controller.worldState, mood: senses.mood, category: senses.category,
       screen: root.screenName, size: root.settings.size, covered: root.covered,
@@ -439,7 +494,7 @@ Item {
       controller.workspaceSwitch(dir === "left" ? -1 : 1, dir === "down" ? "floor" : "side")
       return "ok"
     }
-    function react(name: string): string { controller.react(name); return "ok" }
+    function react(name: string): string { return controller.reactChecked(name) ? "ok" : "unknown" }
     function answer(id: string): string { if (!coach.active) return "none"; coach.answer(id); return "ok" }
     function menu(): string {
       var h = controller.hitbox
@@ -459,5 +514,8 @@ Item {
     }
   }
 
-  Component.onCompleted: root.followFocusedMonitor()
+  Component.onCompleted: {
+    root.followFocusedMonitor()
+    root.themeKey = root.themeColors.accent + root.themeColors.foreground + root.themeColors.background
+  }
 }

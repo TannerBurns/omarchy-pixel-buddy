@@ -125,6 +125,7 @@ PanelWindow {
     id: input
     property bool pressedInside: false
     property bool dragging: false
+    property real lastClickAt: 0     // a second click within 350 ms is a double-click
     property real pressX: 0
     property real pressY: 0
 
@@ -172,7 +173,14 @@ PanelWindow {
         win.controller.dragEnd()
         win.dropped()
       } else if (click) {
-        win.controller.pet()
+        var now = Date.now()
+        if (now - lastClickAt < 350) {
+          lastClickAt = 0
+          win.controller.special()
+        } else {
+          lastClickAt = now
+          win.controller.pet()
+        }
         win.petted()
       }
     }

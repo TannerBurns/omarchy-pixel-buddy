@@ -237,11 +237,27 @@ function validate(json) {
       }
     }
   }
+  // Optional pose fields (object-form poses only): travel, emote, duration.
+  var fpsIn = json.fps && typeof json.fps === "object" ? json.fps : {}
+  for (var dp in json.poses) {
+    var pv = json.poses[dp]
+    if (!pv || Array.isArray(pv) || typeof pv !== "object") continue
+    var pfps = pv.fps !== undefined ? Number(pv.fps) : fpsIn[dp] !== undefined ? Number(fpsIn[dp]) : (DEFAULT_FPS[dp] || 1)
+    if (pv.travel !== undefined) {
+      var tv = Number(pv.travel)
+      if (!(tv >= -4 && tv <= 4)) errors.push(dp + ": travel must be between -4 and 4 art pixels per frame")
+      else if (Math.abs(tv * pfps) > 40) errors.push(dp + ": travel x fps must stay within 40 art pixels per second")
+    }
+    if (pv.duration !== undefined && !(Number(pv.duration) >= 0.3 && Number(pv.duration) <= 4))
+      errors.push(dp + ": duration must be between 0.3 and 4 seconds")
+    if (pv.emote !== undefined && !(typeof pv.emote === "string" && /^[a-z]{1,20}$/.test(pv.emote)))
+      errors.push(dp + ": emote must be a lowercase emote id")
+  }
   if (errors.length > 0) return { ok: false, errors: errors, warnings: warnings }
 
-  // Fill missing poses from the fallback chain.
+  // Fill missing poses from the fallback chain. Extra pose fields come from the
+  // pose that actually supplies the frames.
   var poses = {}
-  var fpsIn = json.fps && typeof json.fps === "object" ? json.fps : {}
   for (var pi = 0; pi < POSES.length; pi++) {
     var name = POSES[pi]
     var src = name
@@ -251,7 +267,14 @@ function validate(json) {
     var fps = declaredPose && !Array.isArray(declaredPose) && declaredPose.fps !== undefined ? Number(declaredPose.fps)
       : fpsIn[name] !== undefined ? Number(fpsIn[name]) : DEFAULT_FPS[name]
     if (!(fps >= 0.25 && fps <= 20)) fps = DEFAULT_FPS[name]
-    poses[name] = { fps: fps, frames: res.poses[src], from: src }
+    var srcPose = json.poses[src]
+    var extra = srcPose && !Array.isArray(srcPose) && typeof srcPose === "object" ? srcPose : {}
+    poses[name] = {
+      fps: fps, frames: res.poses[src], from: src,
+      travel: extra.travel !== undefined ? Number(extra.travel) : 0,
+      emote: typeof extra.emote === "string" ? extra.emote : null,
+      duration: extra.duration !== undefined ? Number(extra.duration) : null
+    }
   }
 
   var character = {

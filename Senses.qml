@@ -22,6 +22,9 @@ Item {
   property bool followCursor: true
   property bool awake: true                // false while hidden/covered/napping
   property bool napPending: false          // wellbeing wants a natural pause
+  property var policy: null                // battery-saver policy (js/Power.js): polling rates
+  readonly property var cursorMs: senses.policy ? senses.policy.cursorMs : [250, 1000]
+  readonly property var geometryMs: senses.policy ? senses.policy.geometryMs : [2000, 5000]
 
   // Outputs
   property var env: ({ mon: null, ledges: [], perch: null, focused: null })
@@ -104,7 +107,7 @@ Item {
   Timer { id: rebuildB; interval: 60; onTriggered: senses.rebuild() }
   Timer {
     id: poll
-    interval: senses.env.floating ? 2000 : 5000
+    interval: senses.env.floating ? senses.geometryMs[0] : senses.geometryMs[1]
     repeat: true
     running: senses.awake
     onTriggered: { Hyprland.refreshToplevels(); rebuildA.restart() }
@@ -259,15 +262,16 @@ Item {
     onConnectionStateChanged: if (connected) { write("cursorpos"); flush() }
   }
 
-  // Adaptive: 4 Hz while the pointer moves (2 Hz on battery), 1 Hz otherwise.
+  // Adaptive: faster while the pointer moves, slower otherwise (and slower
+  // again in battery saver).
   Timer {
     id: cursorPoll
     repeat: true
     running: senses.followCursor && senses.awake
-    interval: Date.now() - senses._lastCursorMove < 3000 ? (senses.batteryPowered ? 500 : 250) : 1000
+    interval: senses.cursorMs[1]
     onTriggered: {
       if (!cursorSock.connected) cursorSock.connected = true
-      interval = Date.now() - senses._lastCursorMove < 3000 ? (senses.batteryPowered ? 500 : 250) : 1000
+      interval = Date.now() - senses._lastCursorMove < 3000 ? senses.cursorMs[0] : senses.cursorMs[1]
     }
   }
 

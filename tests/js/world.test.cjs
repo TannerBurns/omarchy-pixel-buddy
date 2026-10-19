@@ -195,3 +195,165 @@ test("idle ticks are rare: the world sleeps between changes", () => {
   run(w, 120, () => { ticks++ })
   assert.ok(ticks / 120 < 4, "averages under 4 ticks/s at rest (got " + (ticks / 120).toFixed(2) + ")")
 })
+
+// ---- v0.2: signature moves, character swaps, warp none, battery saver
+
+const Power = js("Power")
+const withSpecial = (special, extra) => Object.assign({}, METRICS, {
+  fps: Object.assign({}, METRICS.fps, { special: 4 }),
+  frames: Object.assign({}, METRICS.frames, { special: 2 }),
+  special: Object.assign({ travel: 0, emote: null, duration: null }, special)
+}, extra || {})
+
+test("a signature move plays in place with its emote, then the buddy settles", () => {
+  const w = make("stay", withSpecial({ emote: "sparkle", duration: 1.2 }))
+  World.setEnv(w, envFor(MAXIMIZED, "0xa"))
+  World.place(w, { x: 400, y: 800 })
+  run(w, 0.5)
+  World.pet(w)                             // the first click of a double-click
+  assert.equal(World.render(w).pose, "cheer")
+  assert.equal(World.special(w), true)
+  assert.equal(World.render(w).pose, "special", "a pet's cheer must not hide the move")
+  const x0 = w.x
+  run(w, 0.6)
+  assert.equal(w.st, "special")
+  const r = World.render(w)
+  assert.equal(r.pose, "special")
+  assert.equal(r.emote.id, "sparkle")
+  assert.ok(r.look.every(v => v === 0), "looks straight ahead")
+  assert.equal(w.x, x0, "no travel means no movement")
+  run(w, 1)
+  assert.notEqual(w.st, "special")
+  // Busy states refuse: no special mid-portal.
+  World.workspaceSwitch(w, 1, "side")
+  assert.equal(World.special(w), false)
+})
+
+test("a travelling move stops at the end of its ledge", () => {
+  const w = make("hopper", withSpecial({ travel: 2, duration: 4 }))
+  World.setEnv(w, envFor(MAXIMIZED, "0xa"))
+  World.place(w, { x: MON.right - 80, y: 800 })
+  w.facing = 1
+  World.special(w)
+  let maxX = 0
+  run(w, 3.9, (w2) => { maxX = Math.max(maxX, w2.x) })
+  const edge = MON.right - World.halfW(w)
+  assert.ok(Math.abs(maxX - edge) < 0.01, "stopped at the edge (" + maxX + " vs " + edge + ")")
+  assert.ok(w.x <= edge)
+  const s = make("stay", withSpecial({ travel: 2, duration: 2 }))
+  World.setEnv(s, envFor(MAXIMIZED, "0xa"))
+  World.place(s, { x: 600, y: 800 })
+  World.special(s)
+  run(s, 2)
+  assert.equal(s.x, 600, "stay mode moves in place")
+})
+
+test("character swap: old one walks in, the gap holds for the swap, new one steps out at the same spot", () => {
+  const w = make()
+  World.setEnv(w, envFor(MAXIMIZED, "0xa"))
+  World.place(w, { x: 400, y: 800 })
+  run(w, 0.3)
+  World.drain(w)
+  const x0 = w.x
+  World.requestSwap(w)
+  assert.equal(w.st, "portal")
+  assert.equal(w.portal.swap, true)
+  assert.equal(w.portal.kind, "side")
+  // The portal opens on the roomier side (x=400 on a 1280 screen: the right).
+  assert.equal(w.portal.dir, 1)
+  const wider = Object.assign({}, METRICS, { w: 24, body: { x0: 1, y0: 3, x1: 22, y1: 15 } })
+  let swappedAt = null, arrived = false
+  run(w, 3, (w2) => {
+    for (const ev of World.drain(w2)) {
+      if (ev.type === "gap") {
+        assert.equal(w2.portal.phase, "gap", "the swap lands while the portal is still at its gap")
+        const before = w2.portal.dims.w
+        World.setMetrics(w2, wider)        // what the Service does on "gap"
+        World.clearSwap(w2)
+        assert.ok(w2.portal.dims.w > before, "exit portal sized for the new character")
+        swappedAt = w2.clock
+      }
+      if (ev.type === "arrived") arrived = true
+    }
+  })
+  assert.ok(swappedAt !== null && arrived)
+  assert.equal(w.x, x0, "same spot")
+  assert.equal(w.swapWanted, false)
+  assert.notEqual(w.st, "portal")
+})
+
+test("character swap waits for a calm moment and rides an in-flight portal", () => {
+  const w = make()
+  World.setEnv(w, envFor(MAXIMIZED, "0xa"))
+  World.place(w, { x: 400, y: 800 })
+  World.dragStart(w, 400, 780, 1)
+  World.requestSwap(w)
+  assert.equal(w.st, "carried", "no portal while carried")
+  World.dragMove(w, 450, 700, 1.1)
+  World.dragEnd(w, 2)
+  run(w, 3)
+  assert.equal(w.swapWanted, true, "still wanted after landing until the Service applies it")
+  // A workspace switch during a swap portal takes it over: the swap still lands
+  // at the gap, and the buddy comes out at the new perch.
+  const s = make()
+  World.setEnv(s, envFor(MAXIMIZED, "0xa"))
+  World.place(s, { x: 400, y: 800 })
+  World.requestSwap(s)
+  run(s, 0.1)
+  World.workspaceSwitch(s, -1, "side")
+  assert.equal(s.portal.swap, false)
+  let gaps = 0
+  run(s, 3, (s2) => { for (const ev of World.drain(s2)) if (ev.type === "gap") { gaps++; World.clearSwap(s2) } })
+  assert.equal(gaps, 1)
+  assert.notEqual(s.st, "portal")
+})
+
+test("warp none still reports the gap and the monitor change", () => {
+  const w = make()
+  World.setFlags(w, { warp: "none" })
+  World.setEnv(w, envFor(MAXIMIZED, "0xa"))
+  World.place(w, { x: 400, y: 800 })
+  World.drain(w)
+  World.monitorSwitch(w, 1, "HDMI-A-1")
+  const types = World.drain(w).map(e => e.type)
+  assert.deepEqual(types.filter(t => t !== "landed"), ["screen", "gap", "arrived"])
+  World.requestSwap(w)
+  assert.ok(World.drain(w).some(e => e.type === "gap"), "a swap with warp none is instant")
+})
+
+test("battery saver: fewer ticks at rest, no hangs or random flourishes", () => {
+  const w = make("stay", withSpecial({}))
+  World.setFlags(w, { saver: true, policy: Power.SAVER })
+  World.setEnv(w, envFor(MAXIMIZED, "0xa"))
+  World.place(w, { x: 400, y: 800 })
+  let ticks = 0
+  run(w, 120, () => { ticks++ })
+  assert.ok(ticks / 120 < 2, "under 2 ticks/s at rest (got " + (ticks / 120).toFixed(2) + ")")
+  const h = make("hopper", withSpecial({}))
+  World.setFlags(h, { saver: true, policy: Power.SAVER })
+  World.setEnv(h, envFor(MAXIMIZED, "0xa"))
+  World.place(h, { x: 400, y: 800 })
+  const seen = new Set()
+  run(h, 600, (h2) => seen.add(h2.st))
+  assert.ok(!seen.has("hang"), "never hangs in saver mode")
+  assert.ok(!seen.has("special"), "no random flourishes in saver mode")
+  // The same seeded ten minutes with power do flourish now and then.
+  const n = make("hopper", withSpecial({}))
+  World.setEnv(n, envFor(MAXIMIZED, "0xa"))
+  World.place(n, { x: 400, y: 800 })
+  const seenN = new Set()
+  run(n, 600, (n2) => seenN.add(n2.st))
+  assert.ok(seenN.has("special") || seenN.has("hang"), "normal mode has its excursions")
+})
+
+test("react knows its names and refuses others", () => {
+  const w = make()
+  World.setEnv(w, envFor(MAXIMIZED, "0xa"))
+  World.place(w, { x: 400, y: 800 })
+  for (const name of World.REACTIONS) assert.equal(World.react(w, name), true, name)
+  assert.equal(World.react(w, "moonwalk"), false)
+  World.react(w, "spin")
+  const f0 = World.render(w).facing
+  run(w, 0.15)
+  assert.notEqual(World.render(w).facing, f0, "spin flips facing")
+})
