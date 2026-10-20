@@ -6,13 +6,15 @@ import "plugin" as Buddy
 
 // Development harness (see scripts/dev-run.sh): runs the plugin in its own
 // Quickshell instance with live reload. A stub stands in for Omarchy's shell
-// facade and writes settings to a scratch shell.json instead of yours, and a
-// small strip under the top-right corner stands in for the bar, hosting the
-// plugin's bar widget against this instance's service.
+// facade and writes settings to a scratch shell.json instead of yours. With
+// PIXEL_BUDDY_DEV_BAR=1, a small strip under the top-right corner also stands
+// in for the bar, hosting the plugin's bar widget against this instance's
+// service (it sits over your windows, so it's off unless you ask for it).
 ShellRoot {
   id: harness
 
   readonly property string dir: Quickshell.env("PIXEL_BUDDY_DEV")
+  readonly property bool withBar: Quickshell.env("PIXEL_BUDDY_DEV_BAR") === "1"
 
   FileView {
     id: devConfig
@@ -62,30 +64,33 @@ ShellRoot {
 
   // Full width like the real bar (so the icon's x is the monitor's), but only
   // the strip on the right is drawn or takes clicks.
-  PanelWindow {
-    anchors { top: true; left: true; right: true }
-    margins { top: 40 }
-    implicitHeight: barStub.barSize
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "pixel-buddy-dev-bar"
-    WlrLayershell.layer: WlrLayer.Overlay
-    color: "transparent"
-    mask: Region { item: devStrip }
+  LazyLoader {
+    active: harness.withBar
+    PanelWindow {
+      anchors { top: true; left: true; right: true }
+      margins { top: 40 }
+      implicitHeight: barStub.barSize
+      exclusionMode: ExclusionMode.Ignore
+      WlrLayershell.namespace: "pixel-buddy-dev-bar"
+      WlrLayershell.layer: WlrLayer.Overlay
+      color: "transparent"
+      mask: Region { item: devStrip }
 
-    Rectangle {
-      id: devStrip
-      anchors.right: parent.right
-      anchors.rightMargin: 12
-      width: devWidget.implicitWidth + 16
-      height: parent.height
-      color: "#e61a1b26"
+      Rectangle {
+        id: devStrip
+        anchors.right: parent.right
+        anchors.rightMargin: 12
+        width: devWidget.implicitWidth + 16
+        height: parent.height
+        color: "#e61a1b26"
 
-      Buddy.BarWidget {
-        id: devWidget
-        anchors.centerIn: parent
-        height: barStub.barSize
-        bar: barStub
-        moduleName: "tannerburns.pixel-buddy"
+        Buddy.BarWidget {
+          id: devWidget
+          anchors.centerIn: parent
+          height: barStub.barSize
+          bar: barStub
+          moduleName: "tannerburns.pixel-buddy"
+        }
       }
     }
   }

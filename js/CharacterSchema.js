@@ -231,7 +231,7 @@ function validate(json) {
         if (!an.eyes || !Array.isArray(an.eyes) || an.eyes.length !== 2 || !isPoint(an.eyes[0], w, h) || !isPoint(an.eyes[1], w, h))
           errors.push(pn + "/" + fi + ": anchors.eyes must be two [x, y] points")
       }
-      var named = ["mouth", "hand", "head"]
+      var named = ["mouth", "hand", "head", "neck"]
       for (var ni = 0; ni < named.length; ni++) {
         if (an[named[ni]] !== undefined && !isPoint(an[named[ni]], w, h)) errors.push(pn + "/" + fi + ": anchors." + named[ni] + " must be an [x, y] point")
       }
@@ -288,6 +288,8 @@ function validate(json) {
     flies: motion === "fly",
     palette: palette,
     eyes: { style: eyeStyle, color: eyes.color || "#", glint: eyes.glint || null },
+    // Checked and filled in by js/Personality.js (bad values only warn).
+    personality: json.personality && typeof json.personality === "object" && !Array.isArray(json.personality) ? json.personality : null,
     poses: poses
   }
   return { ok: true, errors: [], warnings: warnings, character: character }

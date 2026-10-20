@@ -6,7 +6,7 @@ Put a character file in `~/.config/pixel-buddy/characters/` and it appears in th
 omarchy-shell pixel-buddy debug | jq .problems
 ```
 
-You draw the body with letters. The plugin adds the eyes, every expression and gaze direction, the mouth, props such as the laptop and the stretch hand, the nightcap, the emotes and the portals. Only an `idle` pose is required.
+You draw the body with letters. The plugin adds the eyes, every expression and gaze direction, the mouth, props such as the laptop and the stretch hand, what it wears (the nightcap, a scarf, sunglasses, a party hat or a crown), the emotes and the portals. Only an `idle` pose is required.
 
 ## A complete small example
 
@@ -27,7 +27,7 @@ This is `tests/fixtures/custom-mochi.json`; the test suite validates it, so it a
     "p": "#ff8fab"
   },
   "eyes": { "style": "dot", "color": "#" },
-  "anchors": { "eyes": [[4, 9], [10, 9]], "mouth": [6, 12], "hand": [7, 15], "head": [7, 5] },
+  "anchors": { "eyes": [[4, 9], [10, 9]], "mouth": [6, 12], "hand": [7, 15], "head": [7, 5], "neck": [7, 14] },
   "poses": {
     "idle": [
       {
@@ -53,7 +53,7 @@ This is `tests/fixtures/custom-mochi.json`; the test suite validates it, so it a
       { "base": "idle/0", "rows": { "5": "................", "6": "......####......" } }
     ],
     "sleep": [
-      { "base": "idle/0", "shift": [0, 2], "rows": { "15": ".##############." } }
+      { "base": "idle/0", "shift": [0, 2], "rows": { "15": ".##############." }, "anchors": { "neck": [7, 14] } }
     ]
   }
 }
@@ -70,6 +70,7 @@ This is `tests/fixtures/custom-mochi.json`; the test suite validates it, so it a
 | `size` | yes | `[width, height]` of every frame, 8 to 32 each. The built-ins are 16 x 16. |
 | `motion` | no | How it moves: `walk` (default), `hop`, `waddle`, `scuttle`, `float` (no gravity, bobs in place) or `fly` (walks, glides when falling). |
 | `speed` | no | Walking speed multiplier, 0.25 to 3 (default 1). |
+| `personality` | no | How it tends to behave: naps, wanders, follows the pointer and so on (see [Personality](#personality)). |
 | `palette` | yes | Maps single characters to colors (see below). `.` is always transparent. |
 | `eyes` | no | `{ "style": "dot" \| "big" \| "bead" \| "none", "color": hex or palette key, "glint": hex or palette key }`. Default: dot eyes in the `#` color. |
 | `anchors` | see below | Points the plugin draws at, for the whole character; poses and frames can override them. |
@@ -95,9 +96,12 @@ Use `#` for the outline. Eyes and mouths default to it.
 | `eyes` | Two `[x, y]` points: the top-left of each eye. Required unless `eyes.style` is `none`. |
 | `mouth` | Top-left of a 4-pixel-wide mouth area. Leave it out if your art has its own mouth (or a beak). |
 | `hand` | Where props sit: the laptop, book, gamepad, stretch hand and cup are drawn with their bottom center here. |
-| `head` | Top center of the head, for the nightcap. |
+| `head` | Top center of the head, where hats sit: the nightcap, party hat and crown rest their bottom edge here (the nightcap's brim one row lower). |
+| `neck` | The middle of the neck, on the row where the head meets the body. The scarf's band (12 pixels wide, 2 tall) starts on this row, so the lowest it can be is the second-to-last row. Characters without a `neck` can't wear the scarf. |
 
 Coordinates count from the top-left of the frame, starting at 0.
+
+Sunglasses need no anchor of their own: a lens covers each eye's 4 x 4 area (see the rules below), with a bridge between them when the eyes are close. They come off while the buddy sleeps, and characters with `eyes.style` `none` can't wear them. Leave room for hats above the head: the lint flags any frame where a hat, the scarf or a lens would be cut off.
 
 ### Poses and fallbacks
 
@@ -133,6 +137,28 @@ A pose with a single idle frame still breathes: the plugin squashes it by a pixe
 
 During its signature move the buddy looks straight ahead, so `special` frames only need room for the eyes at that one gaze. A character without `special` cheers instead.
 
+### Personality
+
+A `personality` block makes a character behave like itself. Every key is optional; anything left out behaves like a character without a personality. A bad value never stops the character from loading: it's skipped with a warning (`node scripts/lint-characters.mjs` shows them).
+
+| Key | Range | Default | Effect |
+| --- | --- | --- | --- |
+| `energy` | 0.5 to 2 | 1 | How lively it is. Higher means shorter rests and more moving about; lower means long sits. |
+| `wander` | 0 to 2 | 1 | How often, and how far, it wanders around its spot. |
+| `naps` | 0 to 1 | 0 | How often it dozes off during the day. |
+| `aloof` | 0 to 1 | 0 | The share of pets it shrugs off: it turns its back with a "…". |
+| `special` | 0 to 0.2 | 0.06 | How often it shows off its signature move on its own. |
+| `follows` | true or false | false | Trots after the pointer while you move it. |
+| `zippy` | true or false | false | Quick on its feet: faster steps and quicker hops. |
+| `flies` | true or false | false | Flies up to high windows instead of taking a portal. In flight it plays its `fall` pose, so draw wing flaps there. |
+| `patrols` | true or false | false | Walks its beat end to end and turns around at each end. |
+
+```json
+"personality": { "naps": 0.5, "aloof": 0.4 }
+```
+
+The built-ins: the cat naps and is a little aloof, the puppy follows you, the hamster is zippy, the dragon flies, the ghost wanders, the knight patrols and the zombie takes it slow. Anyone can switch personalities off with the `personality` setting.
+
 ### Frames
 
 A frame is either full rows:
@@ -165,4 +191,4 @@ node scripts/lint-characters.mjs ~/.config/pixel-buddy/characters/mochi.json
 node scripts/render-sheet.mjs ~/.config/pixel-buddy/characters/mochi.json --out /tmp/sheets
 ```
 
-The lint checks the format, the eye and mouth areas, and the feet. The contact sheets show every pose and frame on dark, grey and light backgrounds, every expression with every gaze, the pixel effects and props, and real sizes. They use the same compositor as the buddy.
+The lint checks the format, the eye and mouth areas, the feet, and that everything the buddy can wear fits. The contact sheets show every pose and frame on dark, grey and light backgrounds, every expression with every gaze, the pixel effects and props, and real sizes. They use the same compositor as the buddy.

@@ -41,6 +41,30 @@ function hopAt(arc, t) {
   }
 }
 
+// A flight from (x0, y0) to (x1, y1), for characters that fly up to high spots:
+// a taller, slower arc than a hop, eased at both ends, that never rises past
+// `ceiling` (the feet y that keeps the head below the bar).
+function flight(x0, y0, x1, y1, k, ceiling) {
+  var dx = x1 - x0, dy = y1 - y0
+  var dist = Math.sqrt(dx * dx + dy * dy)
+  var up = scaled(clamp(36 + Math.abs(dx) * 0.12, 36, 150), k)
+  var top = Math.min(y0, y1) - up
+  var ceil = ceiling === undefined || ceiling === null ? -Infinity : ceiling
+  if (top < ceil) top = ceil
+  return {
+    x0: x0, y0: y0, x1: x1, y1: y1,
+    cx: (x0 + x1) / 2, cy: 2 * top - (y0 + y1) / 2,
+    dur: clamp(0.7 + dist / scaled(480, k), 0.7, 2.6), ceiling: ceil
+  }
+}
+
+function flightAt(arc, t) {
+  var u = clamp(t, 0, 1)
+  var p = hopAt(arc, u * u * (3 - 2 * u))
+  if (p.y < arc.ceiling) p.y = arc.ceiling
+  return p
+}
+
 // One physics step for a falling or thrown body.
 // body: { x, y, vx, vy, k, floats, glides, halfW, bodyH }
 // world: { mon, ledges, landingBelow(list, x, y0, y1, halfW) }
@@ -92,5 +116,5 @@ function glide(body, dt, mon) {
 
 if (typeof module !== "undefined") module.exports = {
   BASE_K: BASE_K, GRAVITY: GRAVITY, MAX_FALL: MAX_FALL, MAX_DT: MAX_DT,
-  scaled: scaled, clamp: clamp, hop: hop, hopAt: hopAt, step: step, slide: slide, glide: glide
+  scaled: scaled, clamp: clamp, hop: hop, hopAt: hopAt, flight: flight, flightAt: flightAt, step: step, slide: slide, glide: glide
 }

@@ -5,12 +5,14 @@ import "js/Platforms.js" as Platforms
 import "js/Sprite.js" as Sprite
 import "js/Glyphs.js" as Glyphs
 import "js/Portal.js" as Portal
+import "js/Personality.js" as Personality
 import "js/CharacterSchema.js" as Schema
 
 // Drives the world simulation and turns its render state into pixels. It ticks
 // only when the world says something will change (`wait`), runs per-frame only
 // while something moves, and repaints the sprite only when its composition
-// actually changes.
+// actually changes. A second, scripted one draws a visiting friend: it has no
+// world until a visit starts and drops it again (reset) when the friend leaves.
 Item {
   id: ctl
 
@@ -26,6 +28,8 @@ Item {
   property bool calm: false
   property string warp: "portal"
   property bool active: true         // false while hidden or covered
+  property bool personality: true    // the character's personality (the `personality` setting)
+  property bool scripted: false      // a visiting friend: never decides by itself
 
   // Render outputs
   property var view: ({ visible: false, x: 0, y: 0 })
@@ -53,7 +57,8 @@ Item {
     var sp = ch.poses.special || {}
     return { k: k, w: ch.w, h: ch.h, body: body, hangTop: hang.y0, motion: ch.motion, floats: ch.floats,
              flies: ch.flies, speed: ch.speed, fps: fps, frames: frames,
-             special: { travel: sp.travel || 0, emote: sp.emote || null, duration: sp.duration || null } }
+             special: { travel: sp.travel || 0, emote: sp.emote || null, duration: sp.duration || null },
+             personality: ctl.personality && !ctl.scripted ? Personality.normalize(ch.personality).personality : null }
   }
 
   // Logical size of the body (for ledges/perches).
@@ -63,7 +68,8 @@ Item {
 
   function ensureWorld() {
     if (ctl.world || !ctl.metrics) return
-    ctl.world = World.create({ motion: Motion, platforms: Platforms, metrics: ctl.metrics, mode: ctl.mode, calm: ctl.calm, warp: ctl.warp })
+    ctl.world = World.create({ motion: Motion, platforms: Platforms, personalities: Personality, metrics: ctl.metrics,
+                               mode: ctl.mode, calm: ctl.calm, warp: ctl.warp, scripted: ctl.scripted })
     World.setFlags(ctl.world, { saver: !!(ctl.policy && ctl.policy.saver), policy: ctl.policy })
   }
 
@@ -138,13 +144,13 @@ Item {
     if (!ctl.world || !ctl.character) return
     var r = World.render(ctl.world)
     if (ctl.worldState !== r.state) ctl.worldState = r.state
-    var key = JSON.stringify([ctl.character.id, r.pose, r.frame, r.expr, r.look, r.facing, r.prop, r.accessory, r.ops])
+    var key = JSON.stringify([ctl.character.id, r.pose, r.frame, r.expr, r.look, r.facing, r.prop, r.accessories, r.ops])
     if (key !== ctl.composeKey) {
       ctl.composeKey = key
       ctl.sprite = Sprite.compose({
         character: ctl.character, colors: ctl.colors, glyphs: Glyphs,
         pose: r.pose, frame: r.frame, expression: r.expr, look: r.look, facing: r.facing,
-        prop: r.prop, accessory: r.accessory, ops: r.ops
+        prop: r.prop, accessories: r.accessories, ops: r.ops
       })
     }
     var s = ctl.sprite
@@ -245,6 +251,48 @@ Item {
     // Re-render only if the gaze changed; publish() skips identical frames.
     publish()
   }
+
+  // ---- visits
+  function setVisit(on) { if (ctl.world) { World.setVisit(ctl.world, on); kick() } }
+  function portalIn(dest, dir) { if (ctl.world) { var ok = World.portalIn(ctl.world, dest, dir); kick(); return ok } return false }
+  function portalOut() { if (ctl.world) { World.portalOut(ctl.world); kick() } }
+  function vanish() { if (ctl.world) { World.vanish(ctl.world); step() } }
+  function face(dir) { if (ctl.world) { World.face(ctl.world, dir); publish() } }
+  function glance(x, y, secs) { if (ctl.world) { World.glance(ctl.world, x, y, secs); kick() } }
+  function express(emoteId, expr, secs) { if (ctl.world) { World.express(ctl.world, emoteId, expr, secs); kick() } }
+  function specialOrCheer() {
+    if (!ctl.world) return
+    if (!World.special(ctl.world)) World.react(ctl.world, "cheer")
+    kick()
+  }
+  // Where it stands, for placing a visitor next to it.
+  function spot() {
+    var w = ctl.world
+    if (!w || !w.placed) return null
+    return { x: w.x, y: w.y, halfW: World.halfW(w), ledge: w.support ? { x1: w.support.x1, x2: w.support.x2, kind: w.support.kind } : null,
+             support: w.support, state: w.st, facing: w.facing }
+  }
+  function halfW() { return ctl.world ? World.halfW(ctl.world) : 0 }
+
+  // Drops the world and everything drawn (a friend who went home).
+  function reset() {
+    tickTimer.stop()
+    frames.running = false
+    ctl.world = null
+    ctl.composeKey = ""
+    ctl.lastMs = 0
+    ctl.view = { visible: false, x: 0, y: 0 }
+    ctl.sprite = { runs: [], w: 0, h: 0, ox: 0, oy: 0, bbox: null }
+    ctl.portals = []
+    ctl.emote = null
+    ctl.hitbox = Qt.rect(0, 0, 0, 0)
+    ctl.bounds = Qt.rect(0, 0, 0, 0)
+    ctl.worldState = "idle"
+  }
+
+  // ---- wardrobe
+  function setWear(list) { if (ctl.world) { World.setWear(ctl.world, list); publish() } }
+  function preview(id, secs) { if (ctl.world) { World.preview(ctl.world, id, secs); kick() } }
 
   function describe() { return ctl.world ? World.describe(ctl.world) : {} }
   function position() { return ctl.world && ctl.world.placed ? { x: ctl.world.x, y: ctl.world.y } : null }

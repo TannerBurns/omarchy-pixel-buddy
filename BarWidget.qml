@@ -14,11 +14,11 @@ import qs.Commons
 BarWidget {
   id: root
 
-  readonly property string version: "0.3.0"
+  readonly property string version: "0.4.0"
   readonly property string pluginId: "tannerburns.pixel-buddy"
   readonly property var svc: root.bar && root.bar.shell && typeof root.bar.shell.serviceFor === "function"
     ? root.bar.shell.serviceFor(root.pluginId) : null
-  readonly property bool live: !!root.svc && root.svc.apiVersion === 1
+  readonly property bool live: !!root.svc && root.svc.apiVersion === 2
   readonly property bool shown: root.live ? root.svc.barIcon : true
   readonly property var face: root.live ? root.svc.barFace : null
   readonly property string countdown: root.live ? root.svc.barText : ""

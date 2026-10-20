@@ -5,8 +5,16 @@
 //
 //   node scripts/render-sheet.mjs <id|path.json>... [--out DIR] [--scale N] [--theme #rrggbb]
 //   node scripts/render-sheet.mjs --lineup [--out DIR]       every built-in, idle frame 0
-//   node scripts/render-sheet.mjs --glyphs [--out DIR]       emotes and props
+//   node scripts/render-sheet.mjs --glyphs [--out DIR]       emotes, props and accessories
 //   node scripts/render-sheet.mjs --portal [--out DIR]       portal open/close strip
+//   node scripts/render-sheet.mjs --wardrobe [id...] [--out DIR]
+//
+// --wardrobe writes wardrobe.png (every built-in, idle frame 0, one row per
+// outfit: none, scarf, party hat, sunglasses, crown, scarf + sunglasses +
+// crown, scarf + sunglasses + nightcap), wardrobe-mix.png (all of them, each
+// in a different outfit, for the README) and <id>-wardrobe.png per character
+// named (every built-in when none is): scarf, sunglasses and party hat on every
+// pose and frame.
 //
 // Per character it writes <id>-poses.png (every pose and frame on dark, grey
 // and light backgrounds), <id>-faces.png (expressions x gaze directions),
@@ -126,8 +134,8 @@ function composeFor(ch, colors, o = {}) {
 
 const BGS = ["#101315", "#7f7f7f", "#ffffff"]
 
-function posesSheet(ch, colors, s) {
-  const probe = composeFor(ch, colors)
+function posesSheet(ch, colors, s, extra = {}) {
+  const probe = composeFor(ch, colors, extra)
   const cw = probe.w * s, chh = probe.h * s, gap = 2 * s
   const maxFrames = Math.max(...Schema.POSES.map(p => ch.poses[p].frames.length))
   const bandW = maxFrames * (cw + gap) + gap
@@ -138,7 +146,7 @@ function posesSheet(ch, colors, s) {
       const frames = ch.poses[pose].frames
       const expr = pose === "sleep" ? "closed" : "open"
       frames.forEach((_, fi) => {
-        const c = composeFor(ch, colors, { pose, frame: fi, expression: expr })
+        const c = composeFor(ch, colors, Object.assign({ pose, frame: fi, expression: expr }, extra))
         drawRuns(img, c.runs, bi * bandW + gap + fi * (cw + gap), gap + pi * (chh + gap), s)
       })
     })
@@ -211,7 +219,10 @@ function glyphSheet(s) {
   const names = Object.keys(Glyphs.EMOTES)
   const props = Object.keys(Glyphs.PROPS)
   const accs = Object.keys(Glyphs.ACCESSORIES)
-  const cell = 10 * s, gap = 2 * s
+  // Sunglasses are drawn per eye: show a pair of lenses joined by a bridge.
+  const accGlyph = a => a.lenses ? { colors: a.colors, rows: a.lenses.dot.rows.map((r, i) => r + (i === 0 ? "k" : ".") + r) } : a
+  const widest = Math.max(10, ...accs.map(n => Math.max(...accGlyph(Glyphs.ACCESSORIES[n]).rows.map(r => r.length))))
+  const cell = widest * s, gap = 2 * s
   const cols = Math.max(names.length, props.length + accs.length)
   const img = canvas(cols * (cell + gap) + gap, 2 * (cell + gap) + gap, "#101315")
   const draw = (g, i, row) => {
@@ -222,7 +233,43 @@ function glyphSheet(s) {
   }
   names.forEach((n, i) => draw(Glyphs.EMOTES[n], i, 0))
   props.forEach((n, i) => draw(Glyphs.PROPS[n], i, 1))
-  accs.forEach((n, i) => draw(Glyphs.ACCESSORIES[n], props.length + i, 1))
+  accs.forEach((n, i) => draw(accGlyph(Glyphs.ACCESSORIES[n]), props.length + i, 1))
+  return img
+}
+
+// Every built-in, idle frame 0, one row per outfit.
+const OUTFITS = [[], ["scarf"], ["partyhat"], ["sunglasses"], ["crown"], ["scarf", "sunglasses", "crown"], ["scarf", "sunglasses", "nightcap"]]
+
+function wardrobeLineup(ids, s) {
+  const chars = ids.map(id => loadCharacter(id))
+  const probe = composeFor(chars[0], {})
+  const cw = probe.w * s, chh = probe.h * s, gap = 2 * s
+  const img = canvas(chars.length * (cw + gap) + gap, OUTFITS.length * (chh + gap) + gap, "#6b7280")
+  OUTFITS.forEach((accessories, r) => chars.forEach((ch, c) => {
+    const x = gap + c * (cw + gap), y = gap + r * (chh + gap)
+    fill(img, x, y, cw, chh, (r + c) % 2 ? "#101315" : "#20242c")
+    drawRuns(img, composeFor(ch, Schema.resolveColors(ch, "natural"), { accessories }).runs, x, y, s)
+  }))
+  return img
+}
+
+// All of them dressed up, each in a different outfit (the README picture).
+const MIX = [["scarf"], ["partyhat"], ["sunglasses"], ["crown"], ["scarf", "crown"], ["sunglasses", "partyhat"],
+             ["scarf", "sunglasses"], ["scarf", "sunglasses", "crown"]]
+
+function wardrobeMix(ids, s) {
+  const chars = ids.map(id => loadCharacter(id))
+  const perRow = 9, gap = 4 * s
+  const comps = chars.map((ch, i) => composeFor(ch, Schema.resolveColors(ch, "natural"), { accessories: MIX[i % MIX.length] }))
+  const cw = comps[0].w * s, chh = comps[0].h * s
+  const rows = Math.ceil(chars.length / perRow)
+  const img = canvas(perRow * (cw + gap) + gap, rows * (chh + gap) + gap, "#101315")
+  comps.forEach((c, i) => {
+    const r = Math.floor(i / perRow), col = i % perRow
+    const inRow = Math.min(perRow, chars.length - r * perRow)
+    const x0 = Math.round((img.w - inRow * (cw + gap) + gap) / 2) + col * (cw + gap)
+    drawRuns(img, c.runs, x0, gap + r * (chh + gap), s)
+  })
   return img
 }
 
@@ -252,7 +299,7 @@ function main() {
   let scale = 8
   let theme = null
   const refs = []
-  let doLineup = false, doGlyphs = false, doPortal = false
+  let doLineup = false, doGlyphs = false, doPortal = false, doWardrobe = false
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
     if (a === "--out") out = resolve(args[++i])
@@ -261,12 +308,13 @@ function main() {
     else if (a === "--lineup") doLineup = true
     else if (a === "--glyphs") doGlyphs = true
     else if (a === "--portal") doPortal = true
+    else if (a === "--wardrobe") doWardrobe = true
     else refs.push(a)
   }
   mkdirSync(out, { recursive: true })
   const written = []
   const save = (name, img) => { const p = join(out, name); writeFileSync(p, encodePng(img)); written.push(p) }
-  for (const ref of refs) {
+  for (const ref of doWardrobe ? [] : refs) {
     const ch = loadCharacter(ref)
     const colors = Schema.resolveColors(ch, theme ? "theme" : "natural", { accent: theme })
     save(`${ch.id}-poses.png`, posesSheet(ch, colors, scale))
@@ -277,6 +325,15 @@ function main() {
   if (doLineup) save(theme ? "lineup-theme.png" : "lineup.png", lineup(builtinIds(), Math.max(2, Math.round(scale / 2)), theme))
   if (doGlyphs) save("glyphs.png", glyphSheet(scale))
   if (doPortal) save("portal.png", portalSheet(scale))
+  if (doWardrobe) {
+    save("wardrobe.png", wardrobeLineup(builtinIds(), Math.max(2, Math.round(scale / 2))))
+    save("wardrobe-mix.png", wardrobeMix(builtinIds(), 6))
+    for (const ref of refs.length ? refs : builtinIds()) {
+      const ch = loadCharacter(ref)
+      const colors = Schema.resolveColors(ch, theme ? "theme" : "natural", { accent: theme })
+      save(`${ch.id}-wardrobe.png`, posesSheet(ch, colors, scale, { accessories: ["scarf", "sunglasses", "partyhat"] }))
+    }
+  }
   for (const p of written) console.log(p)
 }
 

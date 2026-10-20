@@ -250,3 +250,11 @@ test("settings: focus, bar and git settings", () => {
   assert.equal(Settings.parseValue("focusMinutes", "181").ok, false)
   assert.deepEqual(Settings.parseValue("focusBreakMinutes", "10"), { ok: true, value: 10 })
 })
+
+test("docs: docs/characters.md documents every personality key", () => {
+  const fs = require("node:fs")
+  const path = require("node:path")
+  const { ROOT } = require("./helpers.cjs")
+  const doc = fs.readFileSync(path.join(ROOT, "docs/characters.md"), "utf8")
+  for (const key of js("Personality").KEYS) assert.ok(doc.includes("| `" + key + "` |"), "docs/characters.md documents personality." + key)
+})

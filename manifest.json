@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "tannerburns.pixel-buddy",
   "name": "Pixel Buddy",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "Tanner Burns",
   "license": "MIT",
   "description": "A pixel-art desktop buddy that hops between your windows, follows you through a portal on every workspace switch, reacts to what you're working on, and nudges you to stretch.",

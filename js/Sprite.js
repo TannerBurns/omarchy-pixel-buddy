@@ -2,10 +2,11 @@
 // sheets (scripts/render-sheet.mjs) both draw what this returns, so the sheets
 // are exactly what ships.
 //
-// compose() layers a character frame, the shared eyes/mouth glyphs, an
-// accessory and a prop on a padded grid, then applies on-grid pixel ops
-// (squash, stretch, lean, flip, bob, clip, flash) so effects never break the
-// pixel grid. Output is a list of row runs: [y, x, length, "#rrggbb"].
+// compose() layers a character frame, the shared eyes/mouth glyphs, what it
+// wears (scarf, sunglasses, a hat) and a prop on a padded grid, then applies
+// on-grid pixel ops (squash, stretch, lean, flip, bob, clip, flash) so effects
+// never break the pixel grid. Output is a list of row runs: [y, x, length,
+// "#rrggbb"].
 
 var PAD = 6
 
@@ -149,14 +150,85 @@ function frameOf(character, pose, index) {
   return frames[((index % frames.length) + frames.length) % frames.length]
 }
 
+// Which slot each built-in accessory takes, for fits() without the Glyphs
+// module at hand (Glyphs.ACCESSORIES[id].slot is the source of truth).
+var SLOT_OF = { nightcap: "head", partyhat: "head", crown: "head", sunglasses: "eyes", scarf: "neck" }
+
+function slotOf(id, glyphs) {
+  var acc = glyphs && glyphs.ACCESSORIES ? glyphs.ACCESSORIES[id] : null
+  if (acc) return acc.slot || "head"
+  return glyphs ? null : SLOT_OF[id] || null
+}
+
+// The accessories worn, one per slot: { neck, eyes, head } glyphs. The last id
+// listed wins its slot; opts.accessory (one id) counts after opts.accessories.
+// Unknown ids are skipped.
+function wornBySlot(opts, glyphs) {
+  var ids = Array.isArray(opts.accessories) ? opts.accessories.slice() : []
+  if (opts.accessory) ids.push(opts.accessory)
+  var out = {}
+  var table = glyphs.ACCESSORIES || {}
+  for (var i = 0; i < ids.length; i++) {
+    var acc = table[ids[i]]
+    if (acc) out[acc.slot || "head"] = acc
+  }
+  return out
+}
+
+// Where an accessory's pixels go on a frame: blocks of glyph rows at cell
+// coordinates, [{ x, y, rows }], or [] when the frame lacks its anchor. Hats
+// sit on anchors.head and the scarf on anchors.neck at the glyph's (ax, ay);
+// sunglasses put a lens over each eye socket and join them with a bridge along
+// the top when the lenses are at most `bridgeGap` pixels apart.
+function placement(acc, anchors, eyeStyle) {
+  if (!acc || !anchors) return []
+  var slot = acc.slot || "head"
+  if (slot !== "eyes") {
+    var at = anchors[slot]
+    return at ? [{ x: at[0] - acc.ax, y: at[1] - acc.ay, rows: acc.rows }] : []
+  }
+  var eyes = anchors.eyes
+  if (!acc.lenses || eyeStyle === "none" || !eyes || eyes.length !== 2) return []
+  var lens = acc.lenses[eyeStyle] || acc.lenses.dot
+  var lw = widthOf(lens.rows)
+  var left = eyes[0][0] <= eyes[1][0] ? eyes[0] : eyes[1]
+  var right = left === eyes[0] ? eyes[1] : eyes[0]
+  var lx = left[0] + lens.lx, ly = left[1] + lens.ly
+  var rx = right[0] + lens.lx, ry = right[1] + lens.ly
+  var blocks = [{ x: lx, y: ly, rows: lens.rows }, { x: rx, y: ry, rows: lens.rows }]
+  var gap = rx - (lx + lw)
+  if (gap > 0 && gap <= (acc.bridgeGap || 4)) {
+    var bridge = ""
+    for (var i = 0; i < gap; i++) bridge += "k"
+    blocks.push({ x: lx + lw, y: Math.min(ly, ry), rows: [bridge] })
+  }
+  return blocks
+}
+
+// Can this character wear this accessory? Hats need anchors.head, the scarf
+// anchors.neck (on idle frame 0), sunglasses eyes and their two anchors.
+// `glyphs` (the Glyphs module) is optional for the built-in accessories.
+function fits(character, id, glyphs) {
+  var slot = slotOf(id, glyphs)
+  if (!slot || !character || !character.poses || !character.poses.idle) return false
+  var a = frameOf(character, "idle", 0).anchors || {}
+  if (slot === "eyes") return !!(character.eyes && character.eyes.style !== "none" && Array.isArray(a.eyes) && a.eyes.length === 2)
+  return Array.isArray(a[slot])
+}
+
 // opts: {
 //   character   normalized character (CharacterSchema.normalize)
 //   colors      palette char -> "#rrggbb" (CharacterSchema.resolveColors)
 //   glyphs      the Glyphs module (eyes, mouths, props, accessories)
 //   pose, frame, expression ("open"), look ([dx, dy]), facing (1 | -1)
-//   prop, accessory   glyph names or null
+//   prop        a prop glyph name or null
+//   accessories accessory ids, one per slot: the last one listed wins its slot
+//   accessory   one more accessory id (after the list), or null
 //   ops: { squash, stretch, lean, bob, clip: {side, at}, flash, ghost }
 // }
+// Paint order: back prop, body, eyes, mouth, scarf, sunglasses, hat, front
+// prop, then the ops, so everything worn moves with the body. Sunglasses hide
+// the eyes (and aren't worn while asleep, expression "closed").
 // Returns { w, h, ox, oy, runs, bbox, anchors } where (ox, oy) is the cell
 // origin inside the padded grid and the feet sit on row oy + cellH - 1.
 function compose(opts) {
@@ -181,9 +253,13 @@ function compose(opts) {
 
   paint(grid, ox, oy, frame.rows, colorOf)
 
-  // Eyes: the frame leaves eye-free "sockets" of face color at anchors.eyes.
+  var worn = wornBySlot(opts, glyphs)
   var eyeStyle = (ch.eyes && ch.eyes.style) || "dot"
-  if (eyeStyle !== "none" && anchors.eyes) {
+  var glasses = worn.eyes && worn.eyes.lenses && eyeStyle !== "none" && anchors.eyes && anchors.eyes.length === 2 &&
+    expression !== "closed" ? worn.eyes : null
+
+  // Eyes: the frame leaves eye-free "sockets" of face color at anchors.eyes.
+  if (eyeStyle !== "none" && anchors.eyes && !glasses) {
     var glyph = glyphs.eyeGlyph(eyeStyle, expression)
     if (glyph) {
       var eyeColors = glyphs.eyeColors(ch, colors)
@@ -206,15 +282,20 @@ function compose(opts) {
                      mouth.rows, glyphs.eyeColors(ch, colors))
   }
 
-  var acc = opts.accessory && glyphs.ACCESSORIES[opts.accessory] ? glyphs.ACCESSORIES[opts.accessory] : null
-  if (acc && anchors.head)
-    paint(grid, ox + anchors.head[0] - acc.ax, oy + anchors.head[1] - acc.ay, acc.rows, glyphs.colorFor(acc, colors))
+  // Squash and stretch pivot on the body itself, wherever a hat reaches.
+  var box = bbox(grid)
+
+  var wear = [worn.neck, glasses, worn.head]
+  for (var wi = 0; wi < wear.length; wi++) {
+    var blocks = placement(wear[wi], anchors, eyeStyle)
+    for (var bi = 0; bi < blocks.length; bi++)
+      paint(grid, ox + blocks[bi].x, oy + blocks[bi].y, blocks[bi].rows, glyphs.colorFor(wear[wi], colors))
+  }
 
   if (prop && prop.layer !== "back")
     paint(grid, ox + hand[0] - prop.ax, oy + hand[1] - prop.ay, prop.rows, glyphs.colorFor(prop, colors))
 
   var feetY = oy + chh - 1
-  var box = bbox(grid)
   var mid = box ? box.y0 + Math.floor((feetY - box.y0) * 0.45) : oy + Math.floor(chh / 2)
   if (ops.squash > 0) squashRows(grid, mid, Math.min(ops.squash, 6))
   if (ops.stretch > 0) stretchRows(grid, mid, Math.min(ops.stretch, 6))
@@ -287,6 +368,6 @@ function crop(comp, rows) {
 }
 
 if (typeof module !== "undefined") module.exports = {
-  PAD: PAD, compose: compose, frameBox: frameBox, toRuns: toRuns, mix: mix, crop: crop,
+  PAD: PAD, compose: compose, frameBox: frameBox, toRuns: toRuns, mix: mix, crop: crop, fits: fits, placement: placement,
   hexToRgb: hexToRgb, rgbToHex: rgbToHex, mirrorRows: mirrorRows
 }

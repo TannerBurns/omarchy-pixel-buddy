@@ -181,9 +181,16 @@ var PROPS = {
   }
 }
 
-// Accessories sit on anchors.head (top-center of the head).
+// Accessories, one per slot: hats sit on anchors.head (top-center of the
+// head), the scarf on anchors.neck (center of the neck), and sunglasses on the
+// eye anchors (one lens per eye, see `lenses`). (ax, ay) is the glyph pixel
+// that lands on the anchor.
+var ACCESSORY_SLOTS = ["neck", "eyes", "head"]     // paint order
+var WARDROBE = ["scarf", "partyhat", "sunglasses", "crown"]
+
 var ACCESSORIES = {
   nightcap: {
+    slot: "head", name: "Nightcap",
     ax: 3, ay: 3,
     colors: { k: INK, b: "#5b6ee1", d: "#3f4fb3", w: "#f4f4f4" },
     rows: [
@@ -193,6 +200,56 @@ var ACCESSORIES = {
       ".kbbbdk.",
       "kwwwwwwk"
     ]
+  },
+  partyhat: {
+    slot: "head", name: "Party hat",
+    ax: 3, ay: 6,
+    colors: { k: INK, a: "#4cc9f0", s: "#f72585", y: "#ffd23f", w: "#fff6c2" },
+    rows: [
+      "...y...",
+      "..wyy..",
+      "..kyk..",
+      "..kak..",
+      ".kssak.",
+      ".kaask.",
+      "kssaask"
+    ]
+  },
+  crown: {
+    slot: "head", name: "Crown",
+    ax: 3, ay: 4,
+    colors: { k: INK, y: "#ffd23f", w: "#fff3a3", d: "#d9a21b", r: "#e5484d", b: "#5cc8ff" },
+    rows: [
+      ".k.kk.k.",
+      "kwkyykdk",
+      "kwyyyydk",
+      "kyrbbryk",
+      "kkkkkkkk"
+    ]
+  },
+  scarf: {
+    slot: "neck", name: "Scarf",
+    ax: 5, ay: 0,
+    colors: { k: INK, r: "#e5484d", d: "#b8323a", c: "#ffd6a5" },
+    rows: [
+      "krcrrrrrrcrk..",
+      "kdcddddddcdkck"
+    ]
+  },
+  // Drawn per eye instead of from `rows`: a lens over each eye socket (the
+  // eye glyphs are left out underneath), joined by a bridge when the lenses
+  // are close enough. Lens (lx, ly) is where the lens's top-left lands
+  // relative to the eye anchor.
+  sunglasses: {
+    slot: "eyes", name: "Sunglasses",
+    colors: { k: INK, g: "#2b3245", l: "#6f86b8", w: "#ffffff" },
+    bridgeGap: 4,
+    lenses: {
+      dot: { lx: -1, ly: -1, rows: ["kkkk", "kwlk", "klgk", ".kk."] },
+      big: { lx: -1, ly: -1, rows: ["kkkk", "kwlk", "klgk", "kggk", ".kk."] },
+      bead: { lx: -1, ly: -1, rows: ["kkk", "kwk", "klk", ".k."] }
+    },
+    rows: []
   }
 }
 
@@ -380,6 +437,6 @@ function colorFor(glyph, characterColors) {
 
 if (typeof module !== "undefined") module.exports = {
   EYE_W: EYE_W, EXPRESSIONS: EXPRESSIONS, EYES: EYES, MOUTHS: MOUTHS, EXPRESSION_MOUTH: EXPRESSION_MOUTH,
-  PROPS: PROPS, ACCESSORIES: ACCESSORIES, EMOTES: EMOTES, INK: INK,
+  PROPS: PROPS, ACCESSORIES: ACCESSORIES, ACCESSORY_SLOTS: ACCESSORY_SLOTS, WARDROBE: WARDROBE, EMOTES: EMOTES, INK: INK,
   eyeGlyph: eyeGlyph, mouthGlyph: mouthGlyph, eyeColors: eyeColors, colorFor: colorFor
 }

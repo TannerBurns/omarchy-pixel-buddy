@@ -6,12 +6,14 @@ import qs.Ui
 
 // The buddy's surface: one transparent full-output layer above every window on
 // every workspace. Only the buddy itself (and the stretch bubble while it's up)
-// takes input; everything else clicks through. Hiding parks the content and
-// empties the masks instead of unmapping, so showing it again is instant.
+// takes input; everything else clicks through, a visiting friend included.
+// Hiding parks the content and empties the masks instead of unmapping, so
+// showing it again is instant.
 PanelWindow {
   id: win
 
   required property var controller
+  property var friend: null              // a visiting friend's Controller (drawn behind the buddy)
   property var targetScreen: null
   property bool overFullscreen: false
   property var coach: null               // WellbeingCoach; its bubble lives in this window
@@ -37,6 +39,8 @@ PanelWindow {
   readonly property rect hit: win.controller.hitbox
   readonly property rect bubbleRect: win.bubbleShown
     ? Qt.rect(win.bubble.x, win.bubble.y, win.bubble.width, win.bubble.height) : Qt.rect(0, 0, 0, 0)
+  readonly property bool friendDrawn: !!win.friend && (win.friend.view.visible === true || win.friend.portals.length > 0)
+  readonly property rect friendRect: win.friendDrawn ? win.friend.bounds : Qt.rect(0, 0, 0, 0)
 
   mask: Region {
     x: win.hit.width > 0 ? Math.round(win.hit.x - win.pad) : 0
@@ -63,9 +67,50 @@ PanelWindow {
       width: Math.round(win.bubbleRect.width)
       height: Math.round(win.bubbleRect.height)
     }
+    Region {
+      x: Math.round(win.friendRect.x)
+      y: Math.round(win.friendRect.y)
+      width: Math.round(win.friendRect.width)
+      height: Math.round(win.friendRect.height)
+    }
   }
 
   ScreenMoveRemap { id: remap; window: win }
+
+  // A visiting friend: its two portal slots, body and emote, behind the buddy.
+  Repeater {
+    model: 2
+    delegate: SpriteCanvas {
+      required property int index
+      readonly property var p: win.friend && win.friend.portals.length > index ? win.friend.portals[index] : null
+      visible: p !== null
+      px: win.friend ? win.friend.px : 1
+      gridW: p ? p.w : 0
+      gridH: p ? p.h : 0
+      runs: p ? p.runs : []
+      x: p ? p.x : 0
+      y: p ? p.y : 0
+    }
+  }
+  SpriteCanvas {
+    visible: !!win.friend && win.friend.view.visible === true
+    px: win.friend ? win.friend.px : 1
+    gridW: win.friend ? win.friend.sprite.w || 0 : 0
+    gridH: win.friend ? win.friend.sprite.h || 0 : 0
+    runs: win.friend ? win.friend.sprite.runs || [] : []
+    x: win.friend ? win.friend.view.x || 0 : 0
+    y: win.friend ? win.friend.view.y || 0 : 0
+  }
+  SpriteCanvas {
+    readonly property var e: win.friend ? win.friend.emote : null
+    visible: e !== null && !!win.friend && win.friend.view.visible === true
+    px: win.friend ? Math.max(2, win.friend.px - 1) : 1
+    gridW: e ? e.w : 0
+    gridH: e ? e.h : 0
+    runs: e ? e.runs : []
+    x: e ? e.x : 0
+    y: e ? e.y : 0
+  }
 
   // Two portal slots (entry and exit), behind the buddy.
   SpriteCanvas {

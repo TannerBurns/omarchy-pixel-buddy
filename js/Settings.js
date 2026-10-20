@@ -36,7 +36,11 @@ var SPEC = [
   { key: "focusDnd", type: "bool", def: true },
   { key: "barIcon", type: "bool", def: true },
   { key: "gitCelebrate", type: "bool", def: true },
-  { key: "gitRoots", type: "roots", def: "~/Work,~/Code,~/Projects,~/src" }
+  { key: "gitRoots", type: "roots", def: "~/Work,~/Code,~/Projects,~/src" },
+  { key: "personality", type: "bool", def: true },
+  { key: "friends", type: "bool", def: true },
+  { key: "friendEvery", type: "int", def: 45, min: 10, max: 480 },
+  { key: "stats", type: "bool", def: true }
 ]
 
 var DEFAULTS = {}

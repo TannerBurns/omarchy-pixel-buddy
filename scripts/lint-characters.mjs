@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // Lints character files: the schema, characters/index.json, canonical
-// formatting, and the art rules that keep every character working with the
-// shared glyphs:
+// formatting, personality values, and the art rules that keep every character
+// working with the shared glyphs:
 //   - feet on the bottom row (walkers), so ledges and floors line up
 //   - eye sockets: every expression at every gaze lands on face pixels (never
 //     outline or transparency)
 //   - the mouth area sits on face pixels
+//   - the neck anchor sits on the body (every built-in frame has one), and
+//     every accessory (hats, scarf, sunglasses) stays inside the sprite area
 // Usage: node scripts/lint-characters.mjs [file.json ...]   (default: built-ins)
 // Exits 1 on errors; warnings are printed but don't fail.
 
@@ -19,6 +21,8 @@ const require = createRequire(import.meta.url)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const Schema = require(join(ROOT, "js/CharacterSchema.js"))
 const Glyphs = require(join(ROOT, "js/Glyphs.js"))
+const Sprite = require(join(ROOT, "js/Sprite.js"))
+const Personality = require(join(ROOT, "js/Personality.js"))
 
 const errors = []
 const warnings = []
@@ -90,6 +94,52 @@ function checkEmotes(file, ch, builtin) {
   }
 }
 
+// Accessories: the neck anchor sits on the body, and everything worn stays
+// inside the sprite area (the cell plus Sprite.PAD on the sides and top), so
+// no pixel of a hat, scarf or lens is ever cut off. Built-ins must give every
+// frame a neck; custom characters without one just can't wear the scarf.
+function checkWardrobe(file, ch, builtin) {
+  const report = builtin ? err : warn
+  const P = Sprite.PAD
+  if (!builtin && !ch.poses.idle.frames[0].anchors.neck) warn(file, "no neck anchor, so it can't wear the scarf")
+  for (const [pose, p] of Object.entries(ch.poses)) {
+    if (p.from !== pose) continue
+    p.frames.forEach((fr, fi) => {
+      const a = fr.anchors
+      if (!a.neck) {
+        if (builtin) err(file, `${pose}/${fi}: anchors.neck is missing`)
+      } else {
+        const [x, y] = a.neck
+        const under = y >= 0 && y < ch.h && x >= 0 && x < ch.w ? fr.rows[y][x] : "."
+        if (under === ".") report(file, `${pose}/${fi}: anchors.neck ${x},${y} is not on the body`)
+      }
+      for (const [id, acc] of Object.entries(Glyphs.ACCESSORIES)) {
+        const out = []
+        for (const b of Sprite.placement(acc, a, ch.eyes.style)) {
+          b.rows.forEach((row, ry) => {
+            for (let rx = 0; rx < row.length; rx++) {
+              if (row[rx] === ".") continue
+              const x = b.x + rx, y = b.y + ry
+              if (x < -P || x >= ch.w + P || y < -P || y >= ch.h) out.push(`${x},${y}`)
+            }
+          })
+        }
+        if (out.length) report(file, `${pose}/${fi}: the ${acc.name.toLowerCase()} reaches outside the sprite area at ${out[0]}`)
+      }
+    })
+  }
+}
+
+// A personality never rejects a character (bad values fall back with a
+// warning at runtime), but the built-ins must be clean.
+function checkPersonality(file, ch, builtin) {
+  if (ch.personality === null || ch.personality === undefined) return
+  for (const m of Personality.normalize(ch.personality).warnings) {
+    if (builtin) err(file, m)
+    else warn(file, m)
+  }
+}
+
 function checkFeet(file, ch) {
   if (ch.floats) return
   for (const pose of ["idle", "walk", "sit"]) {
@@ -125,6 +175,8 @@ function lint(file, builtin) {
   checkFeet(file, ch)
   checkSockets(file, ch)
   checkEmotes(file, ch, builtin)
+  checkPersonality(file, ch, builtin)
+  checkWardrobe(file, ch, builtin)
   checkStyle(file, ch)
   return ch
 }

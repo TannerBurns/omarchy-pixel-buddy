@@ -1,6 +1,6 @@
 # Pixel Buddy for Omarchy
 
-**A pixel-art desktop buddy that hops between your windows, follows you through a portal on every workspace switch, reacts to what you're working on, keeps you company through focus sessions, and reminds you to stretch.**
+**A pixel-art desktop buddy that hops between your windows, follows you through a portal on every workspace switch, reacts to what you're working on, keeps you company through focus sessions, has friends over now and then, and reminds you to stretch.**
 
 <p align="center">
   <img src="preview.png" alt="Pixel Buddy: seventeen pixel-art characters and a knight stepping out of a portal" width="900">
@@ -18,6 +18,9 @@ omarchy plugin add https://github.com/TannerBurns/omarchy-pixel-buddy --enable -
 - **It watches what you do.** Its eyes follow your cursor. It sits with a laptop while you code or work with an AI agent, reads while you browse, glances at new windows and notifications, and naps when you step away.
 - **Drag it anywhere.** Pick it up, fling it, drop it. Where you drop it on or under a window becomes its spot for that app.
 - **Signature moves.** Double-click it and each character does its own thing: the puppy wags, the frog flicks its tongue, the dragon puffs fire, the penguin belly-slides. Now and then it shows off on its own.
+- **Personalities.** Characters act like themselves: the cat takes naps and gives some pets the cold shoulder, the puppy trots after your pointer, the hamster scurries about, the dragon flies up to high windows, the ghost drifts all over, the knight walks its beat and the zombie takes it slow.
+- **Friends drop by.** Every 45 minutes or so another character steps out of a portal next to your buddy. They say hi, show off their moves, cheer together, and the friend heads home. You can switch visits off in the menu, and invite a friend any time.
+- **Stats and a wardrobe.** It keeps count of your stretches, focus rounds and day streak, and unlocks a scarf, a party hat, sunglasses and a crown along the way. Your buddy wears them on screen and on the bar.
 - **Character handoffs.** Pick a new character (or let the daily surprise change) and the old one walks into a portal while the new one steps out of another.
 - **Focus timer.** Start a focus round (25 minutes by default) and the buddy turns on Do Not Disturb and jumps up through a portal to wait on your bar, leaving your windows alone, with the minutes left next to its face. When the round ends it drops back down, offers a stretch for your break, and asks if you want another round.
 - **On your bar.** Its face sits on the bar, in the left, center or right section, as you like. Click it to call the buddy over (it drops out of a portal right under the icon), right-click for the menu, middle-click to start or stop focus.
@@ -36,6 +39,10 @@ omarchy plugin add https://github.com/TannerBurns/omarchy-pixel-buddy --enable -
 | The characters | Shared expressions |
 | :---: | :---: |
 | <img src="screenshots/characters.png" width="430" alt="All seventeen characters"> | <img src="screenshots/expressions.png" width="330" alt="Cat, frog, robot and ghost showing seven expressions"> |
+
+| A friend drops by | The wardrobe |
+| :---: | :---: |
+| <img src="screenshots/visit.gif" width="390" alt="A duck steps out of a portal next to the cat; they greet each other, show off, cheer, and the duck leaves through a portal"> | <img src="screenshots/wardrobe.png" width="390" alt="The characters wearing scarves, party hats, sunglasses and crowns"> |
 
 *These images are rendered from the plugin's own sprite and portal code (`scripts/make-media.sh`), so they match what runs on your desktop.*
 
@@ -82,8 +89,8 @@ Removing the plugin takes its bar icon with it. The icon is also the plugin's pl
 | Drag | Pick it up and move it. Fling it to throw it. |
 | Click | Pet it. |
 | Double-click | Its signature move. |
-| Right-click | Menu: character, surprise me daily, mode, size, colors, motion, bar section, focus, stretch now, snooze reminders, hide. |
-| Bar icon | Click: call the buddy over. Middle-click: start or stop focus. Right-click: the menu. Hover: next stretch and focus time. |
+| Right-click | Menu: character, surprise me daily, mode, size, colors, motion, friend visits, bar section, focus, stretch now, invite a friend, snooze reminders, hide, the wardrobe and today's stats. |
+| Bar icon | Click: call the buddy over. Middle-click: start or stop focus. Right-click: the menu. Hover: next stretch, focus time and today's stats. |
 | Super+Alt+B | Show or hide it (with the shortcut above). |
 | Super+Alt+P | Start or stop a focus round (with the shortcut above). |
 
@@ -100,6 +107,11 @@ omarchy-shell pixel-buddy stretch                # a stretch break right now
 omarchy-shell pixel-buddy focus toggle           # also: start, stop, status, or minutes (focus 50)
 omarchy-shell pixel-buddy git status | jq        # also: rescan
 omarchy-shell pixel-buddy bar left               # move the bar icon: left, center or right
+omarchy-shell pixel-buddy friend random          # a friend comes over now (or name one: friend frog)
+omarchy-shell pixel-buddy stats | jq             # today, this week, the streak and what's unlocked
+omarchy-shell pixel-buddy wear scarf             # put on an unlocked accessory; wear none takes everything off
+omarchy-shell pixel-buddy preview crown          # try on any accessory for ten seconds
+omarchy-shell pixel-buddy resetStats             # forget the stats and the unlocked accessories
 omarchy-shell pixel-buddy answer done            # answer an open stretch bubble: done, later, skip
 omarchy-shell pixel-buddy react celebrate        # a reaction, see below
 omarchy-shell pixel-buddy warp left              # play a workspace portal: left, right or down
@@ -172,6 +184,10 @@ Settings live in the plugin's entry in `~/.config/omarchy/shell.json`. The right
 | `barIcon` | `true` | Show the buddy's icon on the bar. `false` hides just the icon. |
 | `gitCelebrate` | `true` | Cheer on commits and leap on pushes. |
 | `gitRoots` | `~/Work,~/Code,~/Projects,~/src` | Up to five folders to look for repositories in (four levels deep). Missing ones are skipped. |
+| `personality` | `true` | Characters behave like themselves. `false` makes them all behave the same. |
+| `friends` | `true` | Other characters visit now and then. |
+| `friendEvery` | `45` | Minutes between visits, give or take a few (10-480). |
+| `stats` | `true` | Count stretches, focus rounds, your streak and active time, and unlock accessories. |
 
 ```bash
 omarchy-shell pixel-buddy set colors theme
@@ -180,7 +196,7 @@ omarchy-shell pixel-buddy set stretches wrists,eyes,neck
 
 ## Stretch reminders
 
-The buddy counts active time. Being idle for five minutes or more counts as a break and resets the count, and so does a suspend. Once `breakMinutes` of active time add up, it waits until you pause for a few seconds, then shows a bubble with a guided stretch, a countdown and its own demonstration. **Done** counts toward today's total and your streak, **Later** asks again in ten minutes, and **Skip** resets the timer.
+The buddy counts active time. Being idle for five minutes or more counts as a break and resets the count, and so does a suspend. Once `breakMinutes` of active time add up, it waits until you pause for a few seconds, then shows a bubble with a guided stretch, a countdown and its own demonstration. **Done** counts toward today's total, your stats and how many you've done in a row, **Later** asks again in ten minutes, and **Skip** resets the timer and the run.
 
 | Category | Stretches |
 | --- | --- |
@@ -204,6 +220,45 @@ Start a round from the bar icon (middle-click), the menu, `Super+Alt+P` or `omar
 When the round ends it switches Do Not Disturb back off, drops back down out of a portal under the bar icon, cheers, and offers a stretch for your `focusBreakMinutes` break. After the break it asks whether you want another round. Do Not Disturb follows you: if you switch it off by hand during a round, the buddy leaves it off, and if it was already on before you started, the buddy leaves it on. Rounds keep running while the buddy is hidden and survive a shell restart or a suspend.
 
 `omarchy-shell pixel-buddy focus 50` starts a 50-minute round once, without changing `focusMinutes`.
+
+## Personalities
+
+Each built-in character has its own way of going about its day:
+
+| Character | Personality |
+| --- | --- |
+| Cat | Naps during the day, and shrugs off some pets: it turns its back with a "…". |
+| Puppy | Trots after your pointer when you move it, then wags. |
+| Hamster | Zippy: quick steps, short rests and lots of little trips. |
+| Dragon | Flies up to high windows instead of taking a portal. |
+| Ghost | Wanders far and often. |
+| Knight | Walks its beat end to end and turns smartly at each end. |
+| Zombie | Low energy: long sits and the odd shuffle. |
+
+The rest behave the way every character used to. `set personality false` makes them all behave alike, and custom characters can have a personality too (see [docs/characters.md](docs/characters.md#personality)).
+
+## Friends
+
+Every `friendEvery` minutes or so (45 by default; the first time about ten minutes in), another character steps out of a portal beside your buddy. They greet each other, each does its signature move, they cheer, trade hearts, and the friend walks back into its portal. A visit takes about ten seconds and never moves your buddy from its spot.
+
+Friends stay away while you're in a fullscreen app, sharing your screen, focusing, away from the keyboard, or answering a stretch, and anything that needs your buddy sends a visiting friend home early: picking it up, switching workspaces or monitors, hiding it, or a new character.
+
+Switch visits off in the menu (**Friends: Off**) or with `set friends false`. **Invite a friend** in the menu, or `omarchy-shell pixel-buddy friend frog`, brings one over right away, even with visits off.
+
+## Stats and wardrobe
+
+The buddy keeps count of your Done stretches, finished focus rounds and your day streak (days with at least one of either; days start at 4 a.m.), plus how much of your active time went to each kind of work. The menu shows today, and so does the bar icon's tooltip; `stats` has the week.
+
+Milestones unlock accessories for your buddy:
+
+| Accessory | Unlocks after |
+| --- | --- |
+| Scarf | 10 stretches |
+| Party hat | a 3-day streak |
+| Sunglasses | 5 focus rounds |
+| Crown | a 7-day streak |
+
+The buddy tells you when one unlocks and offers to put it on. Click a wardrobe tile in the menu to wear or take off what you've unlocked (one hat at a time); locked tiles show how far along you are. At bedtime the nightcap takes the place of a hat. `preview crown` tries one on for ten seconds, unlocked or not.
 
 ## Bar icon
 
@@ -239,6 +294,7 @@ Put a character file in `~/.config/pixel-buddy/characters/` and pick it from the
 - It notices that a notification arrived, from a new file in Omarchy's notification folder, but never reads it. Notifications held back by Do Not Disturb don't reach that folder.
 - Git celebrations read only the one-word action of new reflog entries in your repositories. Commit messages, branch names, file names and remotes are never read into the buddy, stored or logged.
 - The focus timer switches Do Not Disturb through Omarchy's own notification service, and only back off when it was the one that switched it on.
+- The stats keep, for the last seven days, how many minutes you were active in each kind of work (coding, browsing, chat and so on: categories only, never which app or window), and your stretch and focus counts. They live in `~/.local/state/pixel-buddy/state.json`. `set stats false` stops counting, and `resetStats` clears them.
 - Everything stays on your machine. The plugin makes no network requests.
 
 ## Requirements
@@ -264,9 +320,9 @@ bash scripts/make-media.sh        # rebuild the README images
 git push && omarchy plugin update tannerburns.pixel-buddy && omarchy restart shell
 ```
 
-- **Dev harness:** disable the installed copy first (`omarchy plugin disable tannerburns.pixel-buddy`) or you'll see two buddies. Its IPC lives at `qs ipc -p "$XDG_RUNTIME_DIR/pixel-buddy-dev" call pixel-buddy status`.
-- **Layout:** the behavior is plain JavaScript in `js/`. `World.js` is the state machine, `Sprite.js` the compositor, and `Portal.js`, `Platforms.js`, `Motion.js`, `Activity.js`, `Roster.js`, `Wellbeing.js`, `Focus.js`, `GitLog.js` and the rest handle the rest. All of it is unit-tested with node, and `helpers/git-watch.sh` is tested against real repositories. The QML files connect it to Hyprland, input, the bar and drawing.
-- **Dev harness:** the harness shows the bar icon in a small strip under the top-right corner, and its scratch settings keep focus away from your real Do Not Disturb.
+- **Dev harness:** it runs beside the installed copy, so you'll see two buddies. Don't disable the installed one to avoid that: that removes its bar icon and the settings stored with it. Its IPC lives at `qs ipc -p "$XDG_RUNTIME_DIR/pixel-buddy-dev" call pixel-buddy status`.
+- **Layout:** the behavior is plain JavaScript in `js/`. `World.js` is the state machine, `Sprite.js` the compositor, and `Portal.js`, `Platforms.js`, `Motion.js`, `Activity.js`, `Roster.js`, `Wellbeing.js`, `Focus.js`, `GitLog.js`, `Personality.js`, `Visit.js`, `Stats.js` and the rest handle the rest. All of it is unit-tested with node, and `helpers/git-watch.sh` is tested against real repositories. The QML files connect it to Hyprland, input, the bar and drawing.
+- **Dev harness:** `PIXEL_BUDDY_DEV_BAR=1 bash scripts/dev-run.sh` adds a stand-in for the bar (a small strip under the top-right corner) with the bar icon. Its scratch settings keep focus away from your real Do Not Disturb.
 - **Logs:** `quickshell log -p /usr/share/omarchy/shell -f`.
 
 ## Credits

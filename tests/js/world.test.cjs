@@ -177,7 +177,8 @@ test("stretch animations run in place and end cleanly", () => {
   World.place(w, { x: 400, y: 800 })
   run(w, 2)
   World.setStretch(w, "tilt-left")
-  run(w, 1)
+  // A move already under way finishes first (at most 3 s).
+  run(w, 4)
   assert.equal(w.st, "stretch")
   assert.ok(World.render(w).ops.lean < 0)
   World.setStretch(w, "hand")

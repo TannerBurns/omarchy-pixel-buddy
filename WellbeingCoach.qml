@@ -41,6 +41,9 @@ Item {
   // The answer to an offer() bubble ("expired" when it folded away unanswered,
   // "later" when the buddy was hidden).
   signal answered(string kind, string id)
+  // For the stats: active seconds counted on each check, and a Done stretch.
+  signal activeTick(int seconds)
+  signal stretchDone()
   property int revision: 0
   onPersist: coach.revision++
 
@@ -77,7 +80,9 @@ Item {
     var now = Date.now()
     var s = coach.session
     var idle = coach.senses ? coach.senses.userIdle : false
+    var before = s.activeMs
     Wellbeing.tick(s, now, !idle)
+    if (s.activeMs > before) coach.activeTick(Math.round((s.activeMs - before) / 1000))
     if (coach.senses && coach.senses.longIdle) Wellbeing.breakTaken(s)
     if (!idle && coach.senses) {
       var m = Object.assign({}, coach.moodSeconds)
@@ -234,6 +239,7 @@ Item {
         coach.controller.setStretch(null)
         if (outcome === "done") coach.controller.react("done")
       }
+      if (outcome === "done") coach.stretchDone()
     }
     coach.active = false
     coach.kind = ""

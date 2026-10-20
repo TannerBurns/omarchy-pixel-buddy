@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Regenerates the README media from the real modules: screenshots/*.png,
-# screenshots/portal.gif and preview.png. Everything is rendered, never
+# Regenerates the README media from the real modules: screenshots/*.png
+# (including wardrobe.png), screenshots/portal.gif and preview.png. Everything is rendered, never
 # captured from a screen. Needs node and ImageMagick (magick).
 #   bash scripts/make-media.sh
 set -euo pipefail
@@ -14,7 +14,10 @@ node "$ROOT/scripts/render-demo.mjs" --out "$DEMO"
 mkdir -p "$SHOTS"
 cp "$DEMO/characters.png" "$SHOTS/characters.png"
 cp "$DEMO/expressions.png" "$SHOTS/expressions.png"
+node "$ROOT/scripts/render-sheet.mjs" --wardrobe --out "$DEMO/wardrobe" >/dev/null
+cp "$DEMO/wardrobe/wardrobe-mix.png" "$SHOTS/wardrobe.png"
 magick -delay 7 -loop 0 "$DEMO"/portal-*.png -filter point -resize 200% -layers Optimize "$SHOTS/portal.gif"
+magick -delay 7 -loop 0 "$DEMO"/visit-*.png -filter point -resize 150% -layers Optimize "$SHOTS/visit.gif"
 
 FONT=$(fc-match -f '%{file}' 'JetBrainsMono Nerd Font:style=Bold' 2>/dev/null || true)
 BODY=$(fc-match -f '%{file}' 'JetBrainsMono Nerd Font:style=Regular' 2>/dev/null || true)
@@ -31,4 +34,4 @@ magick -size 2400x1400 xc:'#101315' \
   "${body_args[@]}" -fill '#9aa5b1' -pointsize 38 -gravity north -annotate +0+200 \
   'A pixel-art desktop buddy for Omarchy that warps between workspaces with you' \
   "$ROOT/preview.png"
-echo "wrote $SHOTS/{characters,expressions}.png, $SHOTS/portal.gif, $ROOT/preview.png"
+echo "wrote $SHOTS/{characters,expressions,wardrobe}.png, $SHOTS/{portal,visit}.gif, $ROOT/preview.png"

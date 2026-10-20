@@ -12,6 +12,7 @@ import "js/Wellbeing.js" as Wellbeing
 import "js/Power.js" as Power
 import "js/Sprite.js" as Sprite
 import "js/Glyphs.js" as Glyphs
+import "js/Stats.js" as Stats
 
 // Pixel Buddy: a pixel-art desktop buddy for the Omarchy shell.
 //
@@ -28,7 +29,7 @@ Item {
   property var shell: null
   property var manifest: null
 
-  readonly property string version: "0.3.0"
+  readonly property string version: "0.4.0"
   readonly property string pluginId: "tannerburns.pixel-buddy"
   readonly property string home: Quickshell.env("HOME")
   property string settingsPath: root.home + "/.config/omarchy/shell.json"
@@ -120,6 +121,8 @@ Item {
     root.store = s
     root.hidden = s.hidden === true
     coach.restore(s.wellbeing)
+    root.stats = Stats.restore(s.stats, Roster.dayKey(new Date()))
+    visit.restore(s.visit)
     root.stateLoaded = true
     focusTimer.restore(s.focus)
     root.pickDaily()
@@ -141,6 +144,8 @@ Item {
     }
     s.wellbeing = coach.session
     s.focus = focusTimer.state
+    s.stats = root.stats
+    s.visit = visit.state
     root.store = s
     stateFile.setText(JSON.stringify(s, null, 2) + "\n")
   }
@@ -185,6 +190,7 @@ Item {
   function requestSwap() {
     var want = root.characterId
     if (!want || want === root.shownId) { controller.clearSwap(); swapDeadline.stop(); return }
+    visit.abort("swap")
     var animate = root.placed && Date.now() - root.placedAt > 3000 && controller.active && !root.hidden
       && !senses.userIdle && root.settings.warp !== "none" && controller.worldState !== "carried" && controller.worldState !== "away"
       && !!characters.byId[root.shownId]
@@ -222,12 +228,18 @@ Item {
     function onRevisionChanged() { if (characters.ready) root.pickDaily() }
   }
 
+  // Today (days turn at 04:00) and whether it's past bedtime, kept current.
+  property string todayKey: Roster.dayKey(new Date())
+  property bool night: false
+
   SystemClock {
     precision: SystemClock.Minutes
     onDateChanged: {
+      root.todayKey = Roster.dayKey(new Date())
       root.pickDaily()
       focusTimer.advance()
-      controller.setFlags({ night: Wellbeing.isNight(new Date(), root.settings.bedtime) })
+      root.night = Wellbeing.isNight(new Date(), root.settings.bedtime)
+      controller.setFlags({ night: root.night })
     }
   }
 
@@ -262,6 +274,7 @@ Item {
     for (var i = 0; i < Quickshell.screens.length; i++) if (Quickshell.screens[i].name === name) to = Quickshell.screens[i]
     if (!to) return
     var dir = from && to.x < from.x ? -1 : 1
+    visit.abort("monitor")
     if (root.hidden || !controller.active) { root.screenName = name; return }
     controller.monitorSwitch(dir, name)
   }
@@ -284,8 +297,8 @@ Item {
     napPending: coach.waitingForPause
     policy: root.policy
 
-    onEnvChanged: { controller.setEnv(senses.env); root.tryPlace() }
-    onWorkspaceSwitched: function (dir, kind) { controller.workspaceSwitch(dir, kind) }
+    onEnvChanged: { controller.setEnv(senses.env); visit.syncEnv(); root.tryPlace() }
+    onWorkspaceSwitched: function (dir, kind) { visit.abort("workspace"); controller.workspaceSwitch(dir, kind) }
     onWindowFocused: controller.focusMoved()
     onFocusSettled: controller.focusMoved()
     onWindowOpened: function (at) { controller.notify("open", at) }
@@ -310,8 +323,54 @@ Item {
     mode: root.settings.mode
     calm: root.settings.motion === "calm" || !root.animationsOn || (senses.screencast && root.settings.screencast === "calm")
     warp: root.settings.warp
+    personality: root.settings.personality
     active: !root.hidden && !root.covered && !root.screencastHide
     onWorldEvent: function (ev) { root.worldEvent(ev) }
+  }
+
+  // ---------------------------------------------------------------- friends
+
+  // A visiting friend: its own scripted Controller, with no world (and so
+  // nothing running) between visits. Its events go to the visit only.
+  Controller {
+    id: friendCtl
+    scripted: true
+    personality: false
+    skin: visit.friendSkin
+    policy: root.policy
+    portalColors: controller.portalColors
+    px: root.settings.scale
+    mode: root.settings.mode
+    calm: controller.calm
+    warp: root.settings.warp
+    active: visit.running && !root.hidden && !root.covered && !root.screencastHide
+  }
+
+  Visit {
+    id: visit
+    settings: root.settings
+    host: controller
+    friend: friendCtl
+    registry: characters
+    themeColors: root.themeColors
+    shownId: root.shownId
+    night: root.night
+    env: senses.env
+    startedAt: root.startedAt
+    conditions: ({
+      placed: root.placed, hidden: root.hidden || root.screencastHide, covered: root.covered,
+      screencast: senses.screencast && root.settings.screencast !== "normal", focusing: focusTimer.focusing,
+      idle: senses.userIdle, bubble: coach.active
+    })
+    onPersist: root.saveState()
+  }
+
+  // IPC and the menu: a friend comes over now ("random" or a character id),
+  // even with automatic visits off.
+  function inviteFriend(id) {
+    var a = String(id || "random").trim().toLowerCase()
+    if (root.hidden) return "hidden"
+    return visit.start(a)
   }
 
   property bool placed: false
@@ -333,10 +392,12 @@ Item {
     var pos = saved && saved.mode === root.settings.mode ? { x: saved.x, y: saved.y } : null
     controller.setEnv(senses.env)
     controller.setMood(senses.mood, Activity.MOOD_PROP[senses.mood], Activity.MOOD_EMOTE[senses.mood])
-    controller.setFlags({ night: Wellbeing.isNight(new Date(), root.settings.bedtime), tired: senses.batteryLow && root.settings.battery })
+    root.night = Wellbeing.isNight(new Date(), root.settings.bedtime)
+    controller.setFlags({ night: root.night, tired: senses.batteryLow && root.settings.battery })
     root.shownId = root.characterId
     controller.setFlags({ focusing: focusTimer.focusing })
     controller.place(pos)
+    controller.setWear(root.worn)
     controller.setHidden(root.hidden || root.screencastHide)
     root.placedAt = Date.now()
     root.placed = true
@@ -401,7 +462,8 @@ Item {
   }
 
   onSettingsChanged: {
-    controller.setFlags({ night: Wellbeing.isNight(new Date(), root.settings.bedtime), tired: senses.batteryLow && root.settings.battery })
+    root.night = Wellbeing.isNight(new Date(), root.settings.bedtime)
+    controller.setFlags({ night: root.night, tired: senses.batteryLow && root.settings.battery })
   }
   onScreencastHideChanged: controller.setHidden(root.hidden || root.screencastHide)
 
@@ -429,8 +491,98 @@ Item {
       if (kind === "focus-break" && id === "stretch") coach.offerStretch(true)
       else if (kind === "focus-again" && id === "again") focusTimer.again()
       else if (kind === "focus-again" && id === "stop") focusTimer.stop()
+      else if (kind === "unlock" && id === "wear") root.wear(root.offeredUnlock)
     }
+    onActiveTick: function (seconds) {
+      if (root.settings.stats) root.stats = Stats.addActivity(root.stats, Roster.dayKey(new Date()), senses.category, seconds)
+    }
+    onStretchDone: root.recordStat("stretch")
   }
+
+  // ---------------------------------------------------------------- stats
+
+  // Counts and the wardrobe (js/Stats.js): what kind of work your active time
+  // went to (categories only, for the last 7 days), Done stretches, finished
+  // focus rounds, the day streak and the accessories they unlock. Local only.
+  property var stats: Stats.create()
+  readonly property var worn: Stats.worn(root.stats)
+  onWornChanged: controller.setWear(root.worn)
+
+  function recordStat(kind) {
+    if (!root.settings.stats) return
+    var r = kind === "focus" ? Stats.recordFocus(root.stats, Roster.dayKey(new Date())) : Stats.recordStretch(root.stats, Roster.dayKey(new Date()))
+    root.stats = r.state
+    if (r.unlocked.length > 0) root.pendingUnlocks = root.pendingUnlocks.concat(r.unlocked)
+    root.saveState()
+  }
+
+  // A new accessory gets its own bubble once the buddy is free (after the
+  // stretch or the focus break that earned it).
+  property var pendingUnlocks: []
+  property string offeredUnlock: ""
+  Timer {
+    interval: 4000
+    repeat: true
+    running: root.pendingUnlocks.length > 0
+    onTriggered: root.offerUnlock()
+  }
+  function offerUnlock() {
+    if (coach.active || !root.placed || root.hidden || root.covered || root.screencastHide || root.focusAway || visit.running) return
+    var id = root.pendingUnlocks[0]
+    var m = Stats.milestone(id)
+    if (!m) { root.pendingUnlocks = root.pendingUnlocks.slice(1); return }
+    if (!coach.offer("unlock", {
+      title: "Unlocked: " + m.name,
+      body: "For " + m.label + ". Want to wear it?",
+      buttons: [{ id: "wear", label: "Wear it", primary: true }, { id: "later", label: "Not now" }],
+      react: "celebrate"
+    })) return
+    root.offeredUnlock = id
+    root.pendingUnlocks = root.pendingUnlocks.slice(1)
+  }
+
+  // id: an unlocked accessory, or "none" to take everything off.
+  function wear(id) {
+    var r = Stats.wear(root.stats, String(id || "").trim().toLowerCase())
+    if (!r.ok) return r.error
+    root.stats = r.state
+    root.saveState()
+    return "ok"
+  }
+  // The menu's wardrobe tiles put things on and take them off.
+  function toggleWear(id) {
+    if (root.worn.indexOf(id) >= 0) { root.stats = Stats.takeOff(root.stats, id); root.saveState(); return "ok" }
+    return root.wear(id)
+  }
+  // Any accessory for ten seconds, unlocked or not.
+  function previewAccessory(id) {
+    var a = String(id || "").trim().toLowerCase()
+    if (!Glyphs.ACCESSORIES[a]) return "unknown accessory '" + a + "' (" + Object.keys(Glyphs.ACCESSORIES).join(", ") + ")"
+    if (root.hidden) return "hidden"
+    controller.preview(a, 10)
+    return "ok"
+  }
+  function resetStats() { root.stats = Stats.reset(); root.pendingUnlocks = []; root.saveState(); return "ok" }
+
+  // For the menu and the bar.
+  readonly property var statsSummary: Stats.summary(root.stats, root.todayKey)
+  function minutesText(m) { return m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + "m" }
+  readonly property string statsLine: {
+    if (!root.settings.stats) return ""
+    var t = root.statsSummary.today
+    var parts = []
+    if (t.activeMinutes > 0) parts.push(root.minutesText(t.activeMinutes) + (t.top.length > 0 ? ", mostly " + t.top[0].category : ""))
+    parts.push(t.stretches + (t.stretches === 1 ? " stretch" : " stretches"))
+    if (t.focus > 0) parts.push(t.focus + (t.focus === 1 ? " focus round" : " focus rounds"))
+    if (root.statsSummary.streak.cur > 1) parts.push(root.statsSummary.streak.cur + "-day streak")
+    return "Today: " + parts.join(" · ")
+  }
+  // The wardrobe, in menu order: { id, name, unlocked, worn, text, fits }.
+  readonly property var wardrobe: Stats.progress(root.stats, root.todayKey).map(function (p) {
+    var m = Stats.milestone(p.id)
+    return { id: p.id, name: m ? m.name : p.id, unlocked: p.unlocked, worn: root.worn.indexOf(p.id) >= 0, text: p.text,
+             fits: !root.shownCharacter || Sprite.fits(root.shownCharacter, p.id, Glyphs) }
+  })
 
   // ---------------------------------------------------------------- focus
 
@@ -476,6 +628,7 @@ Item {
 
   function focusEvent(name) {
     if (name === "focus-done") {
+      root.recordStat("focus")
       // Before the buddy is placed (catching up after a restart) a bubble has
       // nowhere to point; the timer moves on regardless.
       if (!root.placed) return
@@ -539,6 +692,7 @@ Item {
   BuddyWindow {
     id: buddyWindow
     controller: controller
+    friend: friendCtl
     coach: coach
     targetScreen: root.screen
     overFullscreen: root.settings.overFullscreen
@@ -556,8 +710,9 @@ Item {
 
   // BarWidget.qml finds this service through bar.shell.serviceFor() and checks
   // apiVersion first: after an update the shell keeps this (older) service
-  // loaded until it restarts, while the widget reloads at once.
-  readonly property int apiVersion: 1
+  // loaded until it restarts, while the widget reloads at once. 2: the menu
+  // reads the friends, stats and wardrobe properties.
+  readonly property int apiVersion: 2
   readonly property bool barIcon: root.settings.barIcon
   readonly property string barText: focusTimer.focusing || focusTimer.phase === "break" ? focusTimer.minutesLeft + "m" : ""
 
@@ -565,15 +720,22 @@ Item {
   // what the buddy is up to (coarse signals only, never window titles).
   readonly property string barExpression: senses.userIdle || controller.worldState === "sleep" ? "closed"
     : focusTimer.focusing ? "focused" : senses.batteryLow && root.settings.battery ? "sleepy" : "open"
-  readonly property var barFace: root.skin
-    ? Sprite.crop(Sprite.compose({ character: root.skin.character, colors: root.skin.colors, glyphs: Glyphs, expression: root.barExpression }), 12)
-    : null
+  readonly property var barFace: {
+    if (!root.skin) return null
+    var opts = { character: root.skin.character, colors: root.skin.colors, glyphs: Glyphs, expression: root.barExpression }
+    var bare = Sprite.compose(opts)
+    var dressed = Sprite.compose(Object.assign({}, opts, { accessories: root.worn }))
+    // A hat adds rows on top: keep the whole face under it.
+    var extra = bare.bbox && dressed.bbox ? Math.max(0, bare.bbox.y0 - dressed.bbox.y0) : 0
+    return Sprite.crop(dressed, 12 + extra)
+  }
 
   readonly property string barTooltip: {
     void coach.revision
     var lines = [(root.character ? root.character.name : "Pixel Buddy") + (root.hidden ? " (hidden)" : "")]
     if (focusTimer.running) lines.push(focusTimer.label)
     if (root.settings.wellbeing) lines.push("Next stretch: " + coach.remainingText())
+    if (root.statsLine) lines.push(root.statsLine)
     lines.push(root.focusAway ? "Middle-click: stop focus · Right: menu" : "Click: call over · Middle: focus · Right: menu")
     return lines.join("\n")
   }
@@ -640,7 +802,7 @@ Item {
     var s = coach.session
     var parts = ["Next stretch: " + coach.remainingText()]
     if (s.doneDay === Roster.dayKey(new Date()) && s.doneToday > 0) parts.push(s.doneToday + " today")
-    if (s.streak > 1) parts.push("streak " + s.streak)
+    if (s.streak > 1) parts.push(s.streak + " in a row")
     return parts.join(" · ")
   }
 
@@ -657,7 +819,11 @@ Item {
       wellbeing: { enabled: root.settings.wellbeing, next: coach.remainingText(), activeMinutes: Math.round(s.activeMs / 60000),
                    doneToday: s.doneDay === Roster.dayKey(new Date()) ? s.doneToday : 0, streak: s.streak, offering: coach.active },
       focus: root.focusStatus(),
-      git: gitWatcher.status()
+      git: gitWatcher.status(),
+      personality: root.settings.personality ? (controller.describe().personality || "generic") : "off",
+      friends: visit.status(),
+      stats: { enabled: root.settings.stats, today: root.statsSummary.today, streak: root.statsSummary.streak,
+               unlocked: root.stats.unlocked, wearing: root.worn }
     }
   }
 
@@ -670,7 +836,8 @@ Item {
       ledges: (env.ledges || []).map(function (l) { return { id: l.id, kind: l.kind, x1: l.x1, x2: l.x2, y: l.y, cls: l.cls } }),
       mon: env.mon, perches: root.store.perches || {}, problems: characters.problems,
       cursor: [senses._cx, senses._cy], fullscreen: senses.fullscreen, dnd: senses.dnd, screencast: senses.screencast,
-      idle: senses.userIdle, battery: senses.battery
+      idle: senses.userIdle, battery: senses.battery,
+      friend: visit.running ? { id: visit.friendId, world: friendCtl.describe(), at: visit.where } : null
     }
   }
 
@@ -687,6 +854,7 @@ Item {
     function stretch(): string { return root.stretchNow() ? "ok" : "busy" }
     function reloadCharacters(): string { characters.reloadAll(); return "ok" }
     function reset(): string {
+      visit.abort("reset")
       var s = Object.assign({}, root.store)
       s.positions = {}
       s.perches = {}
@@ -704,6 +872,11 @@ Item {
     function focus(action: string): string { return root.focusAction(action) }
     function git(action: string): string { return root.gitAction(action) }
     function bar(section: string): string { return root.moveBar(section) }
+    function friend(id: string): string { return root.inviteFriend(id) }
+    function stats(): string { return JSON.stringify(Stats.summary(root.stats, root.todayKey)) }
+    function wear(id: string): string { return root.wear(id) }
+    function preview(id: string): string { return root.previewAccessory(id) }
+    function resetStats(): string { return root.resetStats() }
     function answer(id: string): string { if (!coach.active) return "none"; coach.answer(id); return "ok" }
     function menu(): string {
       var h = controller.hitbox

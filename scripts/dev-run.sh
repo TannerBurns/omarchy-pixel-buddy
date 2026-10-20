@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Runs the plugin from this checkout in its own Quickshell instance, with live
-# reload on save and a scratch settings file. Disable the installed copy first
-# (omarchy plugin disable tannerburns.pixel-buddy) or you'll see two buddies.
+# reload on save and a scratch settings file. It runs beside the installed copy,
+# so you'll see two buddies; don't disable the installed one to avoid that:
+# since 0.3 that removes its bar entry, and its settings with it.
 #
 #   bash scripts/dev-run.sh              # foreground; Ctrl+C to stop
+#   PIXEL_BUDDY_DEV_BAR=1 bash scripts/dev-run.sh   # plus a stand-in bar strip (top right)
 #   qs ipc -p "$XDG_RUNTIME_DIR/pixel-buddy-dev" call pixel-buddy status
 set -euo pipefail
 

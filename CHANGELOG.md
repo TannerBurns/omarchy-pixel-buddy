@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0: Life
+
+### Added
+
+- **Personalities.** Characters behave like themselves: the cat naps during the day and gives some pets the cold shoulder, the puppy trots after your pointer, the hamster is zippy, the dragon flies up to high windows instead of taking a portal, the ghost wanders far, the knight patrols its beat and the zombie takes it slow. Custom characters can have a `personality` block too (see [docs/characters.md](docs/characters.md#personality)), and `set personality false` makes them all behave alike.
+- **Friends drop by.** Every `friendEvery` minutes (45) or so, another character steps out of a portal next to the buddy: they greet each other, each does its signature move, they cheer, and the friend walks back into its portal. About ten seconds, and never while you're in a fullscreen app, sharing your screen, focusing, away or answering a stretch. Turn visits on or off in the menu's new **Friends** row or with `set friends false`. **Invite a friend** in the menu, or `omarchy-shell pixel-buddy friend random|<id>`, brings one over at once.
+- **Stats and a wardrobe.** The buddy counts your Done stretches, finished focus rounds, day streak and active minutes per kind of work (categories only, kept for seven days, on your machine). Milestones unlock a scarf (10 stretches), a party hat (3-day streak), sunglasses (5 focus rounds) and a crown (7-day streak), and the buddy offers to put each one on. Wear them from the menu's wardrobe row; they show on screen and on the bar icon, and the nightcap still takes the place of a hat at bedtime. The menu and the bar tooltip show today's stats.
+- New settings `personality`, `friends`, `friendEvery` and `stats`; IPC calls `friend`, `stats`, `wear`, `preview` and `resetStats`. Character files get a `neck` anchor for the scarf.
+
+### Changed
+
+- **Real-time pacing.** The buddy's clock ran slow whenever it was resting, so a "20-second" sit could last minutes and it was much quieter than intended. It now keeps real time, with longer sits and rests so it stays calm: it moves about a little more than before, dangles from windows less often (every 15 minutes at most) and shows off on its own now and then.
+- The stretch count in a row now reads "3 in a row"; the new day streak is in the stats.
+- After you call the buddy over from the bar, it stays where it landed for a minute before heading back to its spot.
+
 ## 0.3.0: Focus
 
 ### Added
